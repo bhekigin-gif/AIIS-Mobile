@@ -1,0 +1,9 @@
+{
+  "name": "Copy of AIIS Mobile",
+  "description": "Agriculture Integrated Information System for the Kingdom of Eswatini - A comprehensive national database and Agriculture coordination platform.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera",
+    "microphone"
+  ]
+}

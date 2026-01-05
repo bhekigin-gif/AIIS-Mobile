@@ -1,0 +1,22 @@
+
+{
+  "name": "AIIS Mobile Eswatini",
+  "short_name": "AIIS",
+  "description": "National Agriculture Integrated Information System",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1B4D3E",
+  "icons": [
+    {
+      "src": "https://www.agrinfosystems.gov.sz/assets/uploads/favicon1.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://www.agrinfosystems.gov.sz/assets/uploads/favicon1.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

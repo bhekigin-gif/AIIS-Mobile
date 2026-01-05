@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA & Mobile App Branding -->
+    <title>AIIS Mobile - Eswatini Agriculture</title>
+    <meta name="description" content="National Agriculture Integrated Information System Mobile App">
+    <link rel="icon" href="https://www.agrinfosystems.gov.sz/assets/uploads/favicon1.png" type="image/png">
+    
+    <!-- iOS Specific -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AIIS Mobile">
+    <link rel="apple-touch-icon" href="https://www.agrinfosystems.gov.sz/assets/uploads/favicon1.png">
+    
+    <!-- Android / PWA -->
+    <meta name="theme-color" content="#1B4D3E">
+    <link rel="manifest" href="./manifest.json">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+      :root {
+        --sat: env(safe-area-inset-top);
+        --sar: env(safe-area-inset-right);
+        --sab: env(safe-area-inset-bottom);
+        --sal: env(safe-area-inset-left);
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+        overscroll-behavior-y: none; /* Prevent rubber-banding on mobile */
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+      }
+
+      /* Custom scrollbars for native look */
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+
+      .safe-pt { padding-top: var(--sat); }
+      .safe-pb { padding-bottom: var(--sab); }
+      
+      /* Smooth transitions for mobile panels */
+      .mobile-panel-shadow {
+        box-shadow: 0 -10px 30px -5px rgba(0, 0, 0, 0.15);
+      }
+
+      /* No-selection for UI elements to feel native */
+      .no-select {
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      
+      input, textarea {
+        font-size: 16px !important; /* Prevents iOS auto-zoom on focus */
+      }
+    </style>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
+      }
+    }
+    </script>
+  </head>
+  <body class="bg-gray-50 text-slate-800 antialiased">
+    <div id="root" class="h-full w-full"></div>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>
