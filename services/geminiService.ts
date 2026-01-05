@@ -327,3 +327,41 @@ export const generateOperationalAdvice = async (op: Operation): Promise<string> 
     return response.text || "No specific advice available.";
   } catch (error) { return "Please consult SOPs."; }
 };
+
+// Added missing getGISContext function for spatial infrastructure mapping
+export const getGISContext = async (lat: number, lng: number): Promise<any> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `
+      Identify the location details for coordinates ${lat}, ${lng} in Eswatini.
+      Find the Region, Inkhundla (Constituency), and a general physical address or chiefdom name.
+      Use Google Search to find accurate local geographic data.
+      Return ONLY a JSON object:
+      {
+        "region": "Hhohho | Manzini | Shiselweni | Lubombo",
+        "inkhundla": "Name of Inkhundla",
+        "address": "Description of location or chiefdom"
+      }
+    `;
+
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+
+    let jsonStr = response.text?.trim() || "{}";
+    jsonStr = jsonStr.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    return JSON.parse(jsonStr);
+  } catch (error) {
+    console.warn("GIS Context Error (Non-blocking):", error);
+    return {
+      region: 'Manzini',
+      inkhundla: 'Manzini South',
+      address: 'GPS Coordinate Marker'
+    };
+  }
+};

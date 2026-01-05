@@ -87,8 +87,16 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
   const [idFile, setIdFile] = useState<File | null>(null);
   const [generatedId, setGeneratedId] = useState('');
   
-  // Load dynamic lists
-  const systemMetadata = Get_System_Metadata();
+  // Fix: Load dynamic lists via state
+  const [systemMetadata, setSystemMetadata] = useState<any>(null);
+
+  useEffect(() => {
+    const loadMetadata = async () => {
+        const data = await Get_System_Metadata();
+        setSystemMetadata(data);
+    };
+    loadMetadata();
+  }, []);
 
   const [formData, setFormData] = useState({
     // Actor Details
@@ -157,7 +165,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
               try {
                   const base64 = await fileToBase64(file);
                   const extracted = await extractPersonalDetailsFromID(base64);
-                  if (extracted && extracted.firstName) {
+                  if (extracted && extracted.firstName && systemMetadata) {
                       setFormData(prev => ({
                           ...prev,
                           firstName: extracted.firstName || prev.firstName,
@@ -199,7 +207,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                                   else if (val.includes('Lubombo')) newRegion = Region.Lubombo;
                               }
                           });
-                          if (newRegion && systemMetadata.regions.includes(newRegion)) {
+                          if (newRegion && systemMetadata && systemMetadata.regions.includes(newRegion)) {
                               setFormData(prev => ({ ...prev, region: newRegion }));
                           }
                       }
@@ -276,6 +284,10 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
           setIsSimulatingApproval(false);
       }, 2000);
   };
+
+  if (!systemMetadata) {
+    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-[#1B4D3E]" size={48} /></div>;
+  }
 
   if (submitted) {
     return (

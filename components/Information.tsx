@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Building2, Phone, Mail, MapPin, Megaphone, AlertTriangle, FileText, Download, ChevronRight, ArrowLeft, Upload, X, Plus } from 'lucide-react';
+
+import React, { useState, useEffect } from 'react';
+import { Building2, Phone, Mail, MapPin, Megaphone, AlertTriangle, FileText, Download, ChevronRight, ArrowLeft, Upload, X, Plus, Loader2 } from 'lucide-react';
 import { Get_System_Metadata } from '../services/adminDataService';
 
 type InfoTab = 'about' | 'contacts' | 'announcements' | 'early_warning';
@@ -15,17 +16,32 @@ const Information: React.FC = () => {
   const [activeTab, setActiveTab] = useState<InfoTab>('about');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
-  // System Metadata
-  const systemMetadata = Get_System_Metadata();
+  // System Metadata State
+  const [systemMetadata, setSystemMetadata] = useState<any>(null);
+
+  useEffect(() => {
+    const loadMetadata = async () => {
+        const data = await Get_System_Metadata();
+        setSystemMetadata(data);
+    };
+    loadMetadata();
+  }, []);
 
   // Upload State
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [newFile, setNewFile] = useState<File | null>(null);
-  const [targetCategory, setTargetCategory] = useState(systemMetadata.announcementCategories[0] || 'General Announcements');
+  const [targetCategory, setTargetCategory] = useState('');
+
+  // Synchronize target category when metadata loads
+  useEffect(() => {
+      if (systemMetadata && systemMetadata.announcementCategories.length > 0) {
+          setTargetCategory(systemMetadata.announcementCategories[0]);
+      }
+  }, [systemMetadata]);
 
   // Split categories for UI logic
-  const announcementCategories = systemMetadata.announcementCategories.filter((c: string) => !c.toLowerCase().includes('alert') && !c.toLowerCase().includes('outbreak'));
-  const warningCategories = systemMetadata.announcementCategories.filter((c: string) => c.toLowerCase().includes('alert') || c.toLowerCase().includes('outbreak'));
+  const announcementCategories = systemMetadata?.announcementCategories.filter((c: string) => !c.toLowerCase().includes('alert') && !c.toLowerCase().includes('outbreak')) || [];
+  const warningCategories = systemMetadata?.announcementCategories.filter((c: string) => c.toLowerCase().includes('alert') || c.toLowerCase().includes('outbreak')) || [];
 
   // Mock Data generation
   const initialDocs: DocumentItem[] = [
@@ -54,6 +70,8 @@ const Information: React.FC = () => {
         setNewFile(null);
     }
   };
+
+  if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
 
   const renderAbout = () => (
     <div className="space-y-8 animate-fade-in">
@@ -333,7 +351,7 @@ const Information: React.FC = () => {
                                 onChange={(e) => setTargetCategory(e.target.value)}
                                 className="w-full p-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#1B4D3E] outline-none"
                             >
-                                {systemMetadata.announcementCategories.map((c: string) => (
+                                {systemMetadata?.announcementCategories.map((c: string) => (
                                     <option key={c} value={c}>{c}</option>
                                 ))}
                             </select>

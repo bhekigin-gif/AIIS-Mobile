@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Search, Filter, ShoppingBag, MapPin, Trash2, ArrowLeft, ArrowRight, 
   CreditCard, CheckCircle, XCircle, Package, FileText, Download, Eye, 
@@ -63,16 +63,28 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
   const [fieldMap, setFieldMap] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // System Metadata
-  const systemMetadata = Get_System_Metadata();
-  const catalogue = View_Master_Catalogue();
+  // System Metadata & Catalogue State
+  const [systemMetadata, setSystemMetadata] = useState<any>(null);
+  const [catalogue, setCatalogue] = useState<CatalogueItem[]>([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+        const [meta, cat] = await Promise.all([
+            Get_System_Metadata(),
+            View_Master_Catalogue()
+        ]);
+        setSystemMetadata(meta);
+        setCatalogue(cat);
+    };
+    loadData();
+  }, []);
 
   const handleTraceSearch = async () => {
       if (!traceInput.trim()) return;
       setIsSearchingTrace(true);
-      const product = Get_Product_By_ID(traceInput);
+      const product = await Get_Product_By_ID(traceInput);
       if (product) {
-          const ownerProfile = Get_User_By_ID(product.sellerId || '');
+          const ownerProfile = await Get_User_By_ID(product.sellerId || '');
           setActiveTrace({ product, owner: ownerProfile, enterprise: product.sellerName, batchDate: product.dateListed });
           const report = await getTraceabilityReport(traceInput, product, ownerProfile);
           setAiTraceReport(report);
@@ -118,7 +130,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
     reader.readAsText(file);
   };
 
-  const finalizeImport = () => {
+  const finalizeImport = async () => {
     if (!fieldMap.tradeName) {
         alert("Mapping for 'Trade Name' is required at minimum.");
         return;
@@ -150,7 +162,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
         };
     });
 
-    Add_To_Master_Catalogue(items);
+    await Add_To_Master_Catalogue(items);
+    setCatalogue(prev => [...items, ...prev]);
     setShowMappingModal(false);
     setCsvHeaders([]);
     setCsvDataRows([]);
@@ -349,6 +362,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
         </div>
     );
   };
+
+  if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]" /></div>;
 
   return (
     <div className="space-y-6 pb-20">

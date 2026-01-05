@@ -13,33 +13,42 @@ import CapacityBuilding from './components/CapacityBuilding';
 import AdminModule from './components/AdminModule';
 import ProfileModal from './components/ProfileModal';
 import { SalesProduct, Region, MarketCartItem, MarketOrder, UserRole, UserProfile } from './types';
-import { LayoutDashboard, Info, Factory, ShoppingCart, MessageSquareText, Users, ShieldCheck, ClipboardCheck, BarChart4, Sparkles, X, ShieldAlert, MoreVertical } from 'lucide-react';
-
-const initialProducts: SalesProduct[] = [
-    { id: 'SP-101', name: 'Maize Meal', category: 'Processed Food', commodityType: 'Maize', price: 65, unit: '10kg', quantity: 200, status: 'Active', dateListed: '2023-11-15', sellerName: 'Malkerns Farm', region: Region.Manzini, image: 'https://images.unsplash.com/photo-1621996659490-6213b027d92f?auto=format&fit=crop&q=80&w=300' },
-    { id: 'SP-102', name: 'Fresh Cabbage', category: 'Fresh Produce', commodityType: 'Vegetables', price: 20, unit: 'Pack (2)', quantity: 150, status: 'Active', dateListed: '2023-11-16', sellerName: 'Nhlangano Farmers', region: Region.Shiselweni, image: 'https://images.unsplash.com/photo-1594282486552-05b4d80fbb9f?auto=format&fit=crop&q=80&w=300' },
-];
+import { LayoutDashboard, Info, Factory, ShoppingCart, MessageSquareText, Users, ShieldCheck, ClipboardCheck, BarChart4, Sparkles, X, ShieldAlert, MoreVertical, Loader2 } from 'lucide-react';
+import { Initialize_Database, View_Trading_Catalogue_Items } from './services/adminDataService';
+import { db, Table } from './services/databaseService';
 
 const AccessDenied = ({ message }: { message: string }) => (
-    <div class="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-red-100 shadow-sm m-4">
-        <div class="p-4 bg-red-50 text-red-500 rounded-full mb-4">
+    <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-red-100 shadow-sm m-4">
+        <div className="p-4 bg-red-50 text-red-500 rounded-full mb-4">
             <ShieldAlert size={48} />
         </div>
-        <h3 class="text-xl font-bold text-slate-800 mb-2">Unauthorized</h3>
-        <p class="text-slate-500 text-sm">{message}</p>
+        <h3 className="text-xl font-bold text-slate-800 mb-2">Unauthorized</h3>
+        <p className="text-slate-500 text-sm">{message}</p>
     </div>
 );
 
 const App: React.FC = () => {
+  const [isDbReady, setIsDbReady] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [isAIAdvisorOpen, setIsAIAdvisorOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [products, setProducts] = useState<SalesProduct[]>(initialProducts);
+  const [products, setProducts] = useState<SalesProduct[]>([]);
   const [marketCart, setMarketCart] = useState<MarketCartItem[]>([]);
   const [globalOrders, setGlobalOrders] = useState<MarketOrder[]>([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // DB Initialization
+  useEffect(() => {
+    const setup = async () => {
+        await Initialize_Database();
+        const items = await View_Trading_Catalogue_Items();
+        setProducts(items);
+        setIsDbReady(true);
+    };
+    setup();
+  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -104,6 +113,13 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    if (!isDbReady) return (
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+            <Loader2 className="animate-spin text-[#1B4D3E]" size={48}/>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing National DB...</p>
+        </div>
+    );
+
     if (activeTab === 'login') return <Login onLogin={handleLogin} onRegister={() => setActiveTab('registry')} />;
     if (activeTab === 'registry') return <Registration onBackToLogin={() => setActiveTab('login')} onBackToHome={() => setActiveTab('dashboard')} />;
     
@@ -125,17 +141,14 @@ const App: React.FC = () => {
   const showNavBars = activeTab !== 'login' && activeTab !== 'registry';
 
   return (
-    <div class="flex h-full w-full bg-slate-50 relative overflow-hidden safe-pt no-select">
-      
-      {/* Mobile Drawer Backdrops */}
+    <div className="flex h-full w-full bg-slate-50 relative overflow-hidden safe-pt no-select">
       {isMobile && !isSidebarCollapsed && (
-          <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] animate-fade-in" onClick={toggleSidebar} />
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] animate-fade-in" onClick={toggleSidebar} />
       )}
       {isAIAdvisorOpen && (
-          <div class="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[140] animate-fade-in" onClick={toggleAIAdvisor} />
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[140] animate-fade-in" onClick={toggleAIAdvisor} />
       )}
 
-      {/* Navigation (Sidebar/Drawer) */}
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={handleNavClick} 
@@ -148,34 +161,31 @@ const App: React.FC = () => {
         className={isMobile ? `fixed inset-y-0 left-0 z-[120] transform transition-transform duration-300 ease-out mobile-panel-shadow ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}` : ''}
       />
 
-      {/* Main Container */}
-      <main class={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-300
+      <main className={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-300
           ${!isMobile ? (isSidebarCollapsed ? 'ml-16' : 'ml-64') : 'ml-0'}`}>
         
-        {/* Mobile Header Bar */}
         {isMobile && showNavBars && (
-            <header class="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-100 shrink-0 shadow-sm">
-                <button onClick={toggleSidebar} class="p-2 text-[#1B4D3E] hover:bg-slate-50 rounded-xl"><MoreVertical size={22}/></button>
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] font-black uppercase text-[#1B4D3E] tracking-[0.2em]">AIIS Mobile</span>
-                    <span class="text-[8px] font-bold text-slate-400 uppercase">{activeTab} node</span>
+            <header className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-100 shrink-0 shadow-sm">
+                <button onClick={toggleSidebar} className="p-2 text-[#1B4D3E] hover:bg-slate-50 rounded-xl"><MoreVertical size={22}/></button>
+                <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-black uppercase text-[#1B4D3E] tracking-[0.2em]">AIIS Mobile</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">{activeTab} node</span>
                 </div>
-                <button onClick={() => setIsProfileModalOpen(true)} class="p-2 text-[#1B4D3E] hover:bg-slate-50 rounded-xl">
-                    <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-[10px]">
+                <button onClick={() => setIsProfileModalOpen(true)} className="p-2 text-[#1B4D3E] hover:bg-slate-50 rounded-xl">
+                    <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-[10px]">
                         {user?.name?.charAt(0) || 'G'}
                     </div>
                 </button>
             </header>
         )}
 
-        <div class={`flex-1 overflow-y-auto no-scrollbar scroll-smooth ${isMobile && showNavBars ? 'pb-24' : 'p-4 md:p-8'}`}>
-            <div class="max-w-7xl mx-auto h-full">
+        <div className={`flex-1 overflow-y-auto no-scrollbar scroll-smooth ${isMobile && showNavBars ? 'pb-24' : 'p-4 md:p-8'}`}>
+            <div className="max-w-7xl mx-auto h-full">
                 {renderContent()}
             </div>
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation */}
       {isMobile && showNavBars && (
           <BottomNav 
             activeTab={activeTab}
@@ -186,31 +196,32 @@ const App: React.FC = () => {
           />
       )}
 
-      {/* AI Advisor Sliding Panel (Right) */}
-      <div class={`fixed inset-y-0 right-0 z-[150] w-full sm:w-[450px] bg-white shadow-2xl transform transition-transform duration-500 ease-in-out border-l border-slate-200 ${isAIAdvisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div class="h-full flex flex-col">
-            <div class="p-5 bg-[#1B4D3E] text-white flex justify-between items-center shadow-md shrink-0">
-                <div class="flex items-center gap-3">
-                    <Sparkles class="text-[#FBBF24]" size={24} />
-                    <div><h3 class="font-bold text-sm">AIIS Expert</h3><p class="text-[9px] text-green-200 uppercase tracking-widest font-black">National Intelligence</p></div>
+      <div className={`fixed inset-y-0 right-0 z-[150] w-full sm:w-[450px] bg-white shadow-2xl transform transition-transform duration-500 ease-in-out border-l border-slate-200 ${isAIAdvisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="h-full flex flex-col">
+            <div className="p-5 bg-[#1B4D3E] text-white flex justify-between items-center shadow-md shrink-0">
+                <div className="flex items-center gap-3">
+                    <Sparkles className="text-[#FBBF24]" size={24} />
+                    <div><h3 className="font-bold text-sm">AIIS Expert</h3><p className="text-[9px] text-green-200 uppercase tracking-widest font-black">National Intelligence</p></div>
                 </div>
-                <button onClick={toggleAIAdvisor} class="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
+                <button onClick={toggleAIAdvisor} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
             </div>
-            <div class="flex-1 overflow-hidden h-full"><AIAdvisor /></div>
+            <div className="flex-1 overflow-hidden h-full"><AIAdvisor /></div>
         </div>
       </div>
 
-      {/* Modals & Floating UI */}
       {isProfileModalOpen && user && (
-          <ProfileModal user={user} onClose={() => setIsProfileModalOpen(false)} onSave={(u) => setUser(u)} />
+          <ProfileModal user={user} onClose={() => setIsProfileModalOpen(false)} onSave={(u) => {
+              setUser(u);
+              db.update(Table.Users, u.id!, u);
+          }} />
       )}
 
       {!isMobile && (
           <button 
             onClick={toggleAIAdvisor} 
-            class={`fixed bottom-8 right-8 z-[90] p-4 bg-[#1B4D3E] text-white rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all group ${isAIAdvisorOpen ? 'scale-0' : 'scale-100'}`} 
+            className={`fixed bottom-8 right-8 z-[90] p-4 bg-[#1B4D3E] text-white rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all group ${isAIAdvisorOpen ? 'scale-0' : 'scale-100'}`} 
           >
-            <div class="relative"><MessageSquareText size={28} /><div class="absolute -top-1 -right-1 w-3 h-3 bg-[#FBBF24] rounded-full border-2 border-[#1B4D3E] animate-pulse"></div></div>
+            <div className="relative"><MessageSquareText size={28} /><div className="absolute -top-1 -right-1 w-3 h-3 bg-[#FBBF24] rounded-full border-2 border-[#1B4D3E] animate-pulse"></div></div>
           </button>
       )}
     </div>

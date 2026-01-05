@@ -67,14 +67,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
     setIsAuthenticating(true);
 
     // Minor delay to feel like a real auth process
-    setTimeout(() => {
+    const processAuth = async () => {
         if (!identifier.trim() || !password.trim()) {
             setError("Please enter your credentials.");
             setIsAuthenticating(false);
             return;
         }
 
-        const registeredUsers = View_All_System_Users();
+        const registeredUsers = await View_All_System_Users();
         // Match against email OR system ID
         const matchedUser = registeredUsers.find(u => 
             u.email?.toLowerCase() === identifier.toLowerCase() || 
@@ -95,7 +95,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
         }
 
         onLogin(matchedUser);
-    }, 600); 
+    };
+
+    setTimeout(processAuth, 600); 
   };
 
   return (

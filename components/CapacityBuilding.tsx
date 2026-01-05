@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, ChevronRight, BookOpen, Download, Users, Eye, ArrowLeft, Upload, X, Plus, Search, 
   ImageIcon, Book, FileCog, RefreshCw, CheckCircle, FileType, Filter, Calendar, Sprout, 
@@ -42,11 +43,27 @@ const CapacityBuilding: React.FC = () => {
   const [filterFileType, setFilterFileType] = useState('');
   const [newFile, setNewFile] = useState<File | null>(null);
 
-  // System Metadata
-  const systemMetadata = Get_System_Metadata();
-  const documentCategories = systemMetadata.knowledgeCategories || [];
+  // System Metadata State
+  const [systemMetadata, setSystemMetadata] = useState<any>(null);
+  const [documentCategories, setDocumentCategories] = useState<any[]>([]);
 
-  const [targetCategory, setTargetCategory] = useState(documentCategories[0]?.id || 'gross_margin');
+  useEffect(() => {
+    const loadMetadata = async () => {
+        const data = await Get_System_Metadata();
+        setSystemMetadata(data);
+        setDocumentCategories(data.knowledgeCategories || []);
+    };
+    loadMetadata();
+  }, []);
+
+  const [targetCategory, setTargetCategory] = useState('');
+
+  useEffect(() => {
+    if (documentCategories.length > 0) {
+        setTargetCategory(documentCategories[0].id);
+    }
+  }, [documentCategories]);
+
   const [storyRole, setStoryRole] = useState<ActorType>(ActorType.Farmer);
   const [storyGoal, setStoryGoal] = useState('');
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
@@ -352,6 +369,8 @@ const CapacityBuilding: React.FC = () => {
       teal: { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-100', dot: 'bg-teal-100' },
   };
 
+  if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
+
   const renderMatrix = () => (
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-fade-in">
           <div className="p-8 border-b border-slate-100 bg-slate-50/50">
@@ -419,6 +438,7 @@ const CapacityBuilding: React.FC = () => {
                               <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Objective</p>
                               <p className="text-sm text-slate-600 leading-relaxed font-bold italic border-l-4 border-slate-100 pl-4">"{workflow.objective}"</p>
                               <div className={`flex items-start gap-2 p-3 rounded-2xl ${colors.bg} border ${colors.border} bg-opacity-40`}>
+                                  {/* Fixed: Use imported 'Link' instead of undefined 'LinkIcon' */}
                                   <Link size={14} className={`${colors.text} shrink-0 mt-0.5`} />
                                   <p className="text-[10px] font-bold text-slate-500 leading-tight uppercase tracking-tight">
                                       <span className={`${colors.text} font-black`}>Node Linkage:</span> {workflow.linkage}
