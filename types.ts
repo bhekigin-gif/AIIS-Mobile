@@ -70,21 +70,23 @@ export interface Resource {
 }
 
 export interface UserProfile {
-  id?: string;
-  name: string;
+  id?: string; // National ID
+  name: string; // Display Name (Combined)
+  firstName?: string;
+  lastName?: string;
   email?: string;
   role: UserRole;
-  actorType?: ActorType;
+  actorType?: ActorType; // System Role Detail
   region?: string;
-  tinkhundla?: string;
+  tinkhundla?: string; // Constituency
   avatar?: string;
   title?: string;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
-  entityType?: EntityType;
+  entityType?: EntityType; // Institution Type
   subsidyStatus?: 'None' | 'NMC Voucher' | 'Input Subsidy';
   coordinates?: { lat: number; lng: number };
   dateRegistered?: string;
-  contact?: string;
+  contact?: string; // Contacts
   gender?: string;
   organization?: string;
   organizationId?: string;
@@ -218,6 +220,14 @@ export const TINKHUNDLA = {
     [Region.Manzini]: ['Manzini North', 'Manzini South', 'Kwaluseni', 'Lobamba Lomdzala', 'Nhlambeni', 'Ngwempisi', 'Lamgabhi', 'Ludzeludze', 'Mhlambanyatsi', 'Mtfongwaneni', 'Kukhanyeni', 'Mafutseni', 'Mkhiweni', 'Nkomiyahlaba', 'Mahlangatsha', 'Mangcongo', 'Ntondozi', 'Phondo'],
     [Region.Shiselweni]: ['Hlatikulu', 'Nhlangano', 'Shiselweni I', 'Shiselweni II', 'Hluthi', 'Kumethula', 'Ngudzeni', 'Sandleni', 'Sigwe', 'Hosea', 'Matsanjeni South', 'Somntongo', 'Kubuta', 'Mtsambama', 'Nkwene', 'Mahamba', 'Gege', 'Maseyisini', 'Zombodze Emuva'],
     [Region.Lubombo]: ['Siteki', 'Siphofaneni', 'Big Bend', 'Lomahasha', 'Tikhuba', 'Dvokodvweni', 'Mhlume', 'Mpolonjeni', 'Gilgal', 'Nkilongo', 'Lubuli', 'Sithobela', 'Lugongolweni', 'Matsanjeni North'],
+    [Region.All]: []
+};
+
+export const RDAs: Record<string, string[]> = {
+    [Region.Hhohho]: ['Motshane', 'Northern (Mayiwane)', 'Madlangempisi', 'Herefords'],
+    [Region.Manzini]: ['Central (Ludzeludze)', 'Mahlangatsha', 'Ngwemphisi', 'Bhekinkhosi/Mliba', 'Luve'],
+    [Region.Lubombo]: ['Siteki (Langa)', 'Siphofaneni', 'Sithobela', 'Tikhuba'],
+    [Region.Shiselweni]: ['Mahamba/Zombodze', 'Mahlalini', 'Sandleni/Luqolweni', 'Hluthi'],
     [Region.All]: []
 };
 

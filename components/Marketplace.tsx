@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Search, Filter, ShoppingBag, MapPin, Trash2, ArrowLeft, ArrowRight, 
@@ -8,7 +9,9 @@ import {
   Map as MapIcon, Calendar, UserCheck, Tag, Phone, Building2, QrCode, 
   RefreshCw, Sprout, Layers, Link, ArrowUpRight, BarChart3, Database, 
   Landmark, Receipt, FileSearch, Target, Wallet, ShoppingCart, FileUp, Table, Loader2,
-  Fingerprint, Activity, Zap
+  Fingerprint, Activity, Zap,
+  // Add missing icon
+  ChevronDown
 } from 'lucide-react';
 import { SalesProduct, Region, MarketCartItem, MarketOrder, UserProfile, OrderStatus, UserRole, CatalogueItem, Operation } from '../types';
 import { Get_Product_By_ID, Get_User_By_ID, View_Master_Catalogue, Add_To_Master_Catalogue, Get_System_Metadata } from '../services/adminDataService';

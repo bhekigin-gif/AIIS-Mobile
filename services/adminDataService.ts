@@ -1,5 +1,5 @@
 
-import { UserProfile, UserRole, ActorType, EntityType, Region, SalesProduct, IndicatorItem, CatalogueItem, ResourceType } from '../types';
+import { UserProfile, UserRole, ActorType, EntityType, Region, SalesProduct, IndicatorItem, CatalogueItem, ResourceType, RDAs } from '../types';
 import { db, Table } from './databaseService';
 
 // --- SYSTEM METADATA DEFAULTS ---
@@ -8,6 +8,8 @@ const INITIAL_METADATA = {
     actorTypes: Object.values(ActorType),
     entityTypes: Object.values(EntityType),
     resourceTypes: Object.values(ResourceType),
+    rdas: RDAs,
+    countries: ['Eswatini', 'South Africa', 'Mozambique', 'Botswana', 'Namibia'],
     divisions: [
         'Consumables (Biological & Chemical)',
         'Mechanisation',
@@ -50,9 +52,10 @@ const INITIAL_METADATA = {
 };
 
 const ESSENTIAL_USERS: UserProfile[] = [
-    { id: 'ADMIN', name: 'System Administrator', email: 'admin@moa.gov.sz', role: UserRole.Government, actorType: ActorType.Gov, region: Region.Hhohho, status: 'Active', title: 'Super User', organization: 'Ministry of Agriculture', organizationId: 'MOA-HQ' },
-    { id: 'MG', name: 'Mgulukudeni Ginindza', email: 'farmer@gmail.com', role: UserRole.Farmer, actorType: ActorType.Farmer, entityType: EntityType.Person, region: Region.Manzini, tinkhundla: 'Manzini South', status: 'Active', title: 'Primary Producer', contact: '+268 7805 4321', organization: 'Ginindza Green Estate', organizationId: 'GININDZA-001' },
-    { id: 'EXT', name: 'Extension Officer', email: 'extension@moa.gov.sz', role: UserRole.Extension, actorType: ActorType.Extension, region: Region.Lubombo, status: 'Active', title: 'Regional Advisor', organization: 'Ministry of Agriculture', organizationId: 'MOA-LUBOMBO' },
+    { id: 'ADMIN', name: 'System Administrator', firstName: 'System', lastName: 'Admin', email: 'admin@moa.gov.sz', role: UserRole.Government, actorType: ActorType.Gov, region: Region.Hhohho, status: 'Active', title: 'Super User', organization: 'Ministry of Agriculture', organizationId: 'MOA-HQ', country: 'Eswatini' },
+    { id: 'MG', name: 'Mgulukudeni Ginindza', firstName: 'Mgulukudeni', lastName: 'Ginindza', email: 'farmer@gmail.com', role: UserRole.Farmer, actorType: ActorType.Farmer, entityType: EntityType.Person, region: Region.Manzini, tinkhundla: 'Manzini South', status: 'Active', title: 'Primary Producer', contact: '+268 7805 4321', organization: 'Ginindza Green Estate', organizationId: 'GININDZA-001', country: 'Eswatini', rda: 'Central (Ludzeludze)', gender: 'Male' },
+    { id: 'EXT', name: 'Extension Officer', firstName: 'Regional', lastName: 'Officer', email: 'extension@moa.gov.sz', role: UserRole.Extension, actorType: ActorType.Extension, region: Region.Lubombo, status: 'Active', title: 'Regional Advisor', organization: 'Ministry of Agriculture', organizationId: 'MOA-LUBOMBO', country: 'Eswatini' },
+    { id: 'ORG-001', name: 'Swazi Agri Corp', firstName: 'Corp', lastName: 'Admin', email: 'info@swaziagri.com', role: UserRole.Farmer, actorType: ActorType.Farmer, entityType: EntityType.Company, region: Region.Hhohho, status: 'Active', organization: 'Swazi Agri Corp', organizationId: 'ORG-001', country: 'Eswatini' },
 ];
 
 const INITIAL_CATALOGUE: CatalogueItem[] = [

@@ -15,7 +15,7 @@ import {
   Globe, Sparkles, PackagePlus, Briefcase, Fingerprint, Receipt,
   Tags, ArrowUpRight, BarChart4, ChevronLeft, PieChart,
   TrendingDown, Scale, MapPinned, Camera, Upload,
-  Minimize2
+  Minimize2, Archive
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
@@ -123,10 +123,11 @@ const Production: React.FC<ProductionProps> = ({
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showUsageModal, setShowUsageModal] = useState(false);
   const [showOpModal, setShowOpModal] = useState(false);
-  const [showUnitResourceModal, setShowUnitResourceModal] = useState(false);
+  const [showUnitInventoryModal, setShowUnitInventoryModal] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
   
-  const [activeUnitForResources, setActiveUnitForResources] = useState<any>(null);
+  const [activeUnitForInventory, setActiveUnitForInventory] = useState<any>(null);
+  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [finishingOp, setFinishingOp] = useState<Operation | null>(null);
 
   const [isPlacingMode, setIsPlacingMode] = useState(false);
@@ -196,19 +197,11 @@ const Production: React.FC<ProductionProps> = ({
                 center: selectedEnterprise?.gps || { lat: -26.48, lng: 31.37 },
                 zoom: selectedEnterprise ? 18 : 11,
                 mapTypeId: 'hybrid',
-                disableDefaultUI: true, // Custom UI will be added on top
+                disableDefaultUI: true,
                 gestureHandling: 'greedy',
                 styles: [
-                  {
-                    featureType: "poi",
-                    elementType: "labels",
-                    stylers: [{ visibility: "on" }]
-                  },
-                  {
-                    featureType: "road",
-                    elementType: "labels",
-                    stylers: [{ visibility: "on" }]
-                  }
+                  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "on" }] },
+                  { featureType: "road", elementType: "labels", stylers: [{ visibility: "on" }] }
                 ]
             });
             setMapInstance(map);
@@ -228,9 +221,7 @@ const Production: React.FC<ProductionProps> = ({
 
                     if (status === 'OK' && results[0]) {
                         address = results[0].formatted_address;
-                        const poi = results.find((r: any) => 
-                            r.types.includes('point_of_interest') || r.types.includes('establishment')
-                        );
+                        const poi = results.find((r: any) => r.types.includes('point_of_interest') || r.types.includes('establishment'));
                         if (poi) closestPlace = poi.name || poi.formatted_address.split(',')[0];
                         results[0].address_components.forEach((c: any) => {
                             if (c.types.includes('country')) country = c.long_name;
@@ -314,8 +305,31 @@ const Production: React.FC<ProductionProps> = ({
     setShowUnitModal(false); setEditingUnitId(null); await loadAllData(selectedEntId);
   };
 
+  const handleSaveUnitInventory = async () => {
+      if (!selectedEntId || !activeUnitForInventory) return;
+      const ent = await db.getById<any>(Table.Enterprises, selectedEntId); if (!ent) return;
+      
+      const linkedResources = ent.resources.filter((r: Resource) => selectedResourceIds.includes(r.id));
+      
+      // Update resources globally in the enterprise to reflect their assigned unit
+      ent.resources = ent.resources.map((r: Resource) => {
+          if (selectedResourceIds.includes(r.id)) return { ...r, assignedUnitId: activeUnitForInventory.id };
+          if (r.assignedUnitId === activeUnitForInventory.id && !selectedResourceIds.includes(r.id)) return { ...r, assignedUnitId: '' };
+          return r;
+      });
+
+      // Update the specific unit's resource list
+      ent.units = ent.units.map((u: any) => {
+          if (u.id === activeUnitForInventory.id) return { ...u, resources: linkedResources };
+          return u;
+      });
+
+      await db.update<any>(Table.Enterprises, selectedEntId, { resources: ent.resources, units: ent.units });
+      setShowUnitInventoryModal(false); setActiveUnitForInventory(null); await loadAllData(selectedEntId);
+  };
+
   const handleSaveAsset = async () => {
-      const targetUnitId = activeUnitForResources?.id; const targetEntId = selectedEntId;
+      const targetUnitId = activeUnitForInventory?.id; const targetEntId = selectedEntId;
       if (!targetEntId || !newAsset.name) return;
       const ent = await db.getById<any>(Table.Enterprises, targetEntId); if (!ent) return;
       const assetObj = { ...newAsset, id: `AST-${Date.now()}`, totalUsageHours: 0, quantity: newAsset.quantity || 1, assignedUnitId: targetUnitId || '', unitNumber: newAsset.type === ResourceType.Machinery || newAsset.type === ResourceType.Equipment ? `${newAsset.unitNumber}${newAsset.specificSerial ? ' / ' + newAsset.specificSerial : ''}` : newAsset.unitNumber } as Resource;
@@ -383,7 +397,7 @@ const Production: React.FC<ProductionProps> = ({
               </div>
               <div className="flex gap-2">
                   <button onClick={() => setShowUsageModal(true)} disabled={!selectedEntId || selectedEnterprise?.resources?.length === 0} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm disabled:opacity-30"><Calculator size={14}/> Usage</button>
-                  <button onClick={() => { setActiveUnitForResources(null); setShowAssetModal(true); }} disabled={!selectedEntId} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm disabled:opacity-30"><Plus size={14}/> Asset</button>
+                  <button onClick={() => { setActiveUnitForInventory(null); setShowAssetModal(true); }} disabled={!selectedEntId} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm disabled:opacity-30"><Plus size={14}/> Asset</button>
               </div>
           </div>
           {inventorySubTab === 'ASSETS' ? (
@@ -470,22 +484,14 @@ const Production: React.FC<ProductionProps> = ({
                             {(isLoading || isResolvingGIS) && (<div className="absolute inset-0 z-40 bg-slate-100/50 backdrop-blur-sm flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin text-[#1B4D3E]" size={32} /></div>)}
                             <div ref={mapRef} className="w-full h-full z-10 bg-slate-200" />
                             
-                            {/* Map Control Overlays */}
                             <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-                                <button 
-                                    onClick={() => setIsFullscreen(!isFullscreen)}
-                                    className="p-3 bg-white/95 backdrop-blur-md text-[#1B4D3E] rounded-2xl shadow-xl hover:bg-emerald-50 transition-all border border-slate-200"
-                                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                                >
-                                    {isFullscreen ? <Minimize2 size={20}/> : <Maximize2 size={20}/>}
-                                </button>
+                                <button onClick={() => setIsFullscreen(!isFullscreen)} className="p-3 bg-white/95 backdrop-blur-md text-[#1B4D3E] rounded-2xl shadow-xl hover:bg-emerald-50 transition-all border border-slate-200" title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>{isFullscreen ? <Minimize2 size={20}/> : <Maximize2 size={20}/>}</button>
                                 <div className="flex flex-col bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                                     <button onClick={() => handleMapZoom('in')} className="p-3 text-[#1B4D3E] hover:bg-emerald-50 border-b border-slate-100 transition-colors" title="Zoom In"><ZoomIn size={20}/></button>
                                     <button onClick={() => handleMapZoom('out')} className="p-3 text-[#1B4D3E] hover:bg-emerald-50 transition-colors" title="Zoom Out"><ZoomOut size={20}/></button>
                                 </div>
                             </div>
 
-                            {/* Legend / Info Box */}
                             <div className="absolute bottom-6 left-6 z-20 bg-[#1B4D3E]/90 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-white shadow-2xl max-w-xs animate-fade-in hidden sm:block">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Info size={14} className="text-[#FBBF24]"/>
@@ -500,7 +506,7 @@ const Production: React.FC<ProductionProps> = ({
                                 {enterprises.map(ent => (
                                     <div key={ent.id} className="space-y-2">
                                         <button onClick={() => setSelectedEntId(ent.id)} className={`w-full text-left p-4 rounded-2xl border transition-all ${selectedEntId === ent.id ? 'bg-[#1B4D3E] border-[#1B4D3E] text-white shadow-lg' : 'bg-slate-50 border-slate-100'}`}><h5 className="font-black text-xs truncate">{ent.name}</h5><p className={`text-[8px] font-black uppercase mt-0.5 ${selectedEntId === ent.id ? 'text-green-300' : 'text-slate-400'}`}>{ent.region}</p></button>
-                                        {selectedEntId === ent.id && ent.units?.length > 0 && (<div className="pl-4 space-y-1.5 border-l border-slate-100 ml-3">{ent.units.map((unit: any) => (<div key={unit.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 rounded-xl"><div className="overflow-hidden"><p className="text-[10px] font-black text-slate-700 truncate">{unit.name}</p><p className="text-[8px] text-slate-400 font-bold uppercase">{unit.area} Ha</p></div><button onClick={() => { setEditingUnitId(unit.id); setNewUnit({...unit, height: unit.height || 1.2}); setShowUnitModal(true); }} className="p-1 text-slate-300 hover:text-indigo-600 transition-colors"><Pencil size={12}/></button></div>))}</div>)}
+                                        {selectedEntId === ent.id && ent.units?.length > 0 && (<div className="pl-4 space-y-1.5 border-l border-slate-100 ml-3">{ent.units.map((unit: any) => (<div key={unit.id} className="flex items-center justify-between p-2.5 bg-white border border-slate-100 rounded-xl"><div className="overflow-hidden"><p className="text-[10px] font-black text-slate-700 truncate">{unit.name}</p><p className="text-[8px] text-slate-400 font-bold uppercase">{unit.area} Ha</p></div><div className="flex items-center gap-1"><button onClick={() => { setActiveUnitForInventory(unit); setSelectedResourceIds(unit.resources?.map((r: any) => r.id) || []); setShowUnitInventoryModal(true); }} className="p-1.5 text-slate-300 hover:text-emerald-600 transition-colors" title="Add Inventory"><PackagePlus size={14}/></button><button onClick={() => { setEditingUnitId(unit.id); setNewUnit({...unit, height: unit.height || 1.2}); setShowUnitModal(true); }} className="p-1.5 text-slate-300 hover:text-indigo-600 transition-colors" title="Edit Unit"><Pencil size={14}/></button></div></div>))}</div>)}
                                     </div>
                                 ))}
                             </div>
@@ -562,7 +568,56 @@ const Production: React.FC<ProductionProps> = ({
             )}
         </div>
 
-        {/* Harvest Modal with Image Upload */}
+        {/* Unit Inventory Modal: Links existing assets */}
+        {showUnitInventoryModal && activeUnitForInventory && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
+                    <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Archive size={24} className="text-[#FBBF24]"/></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Assign Unit Inventory</h3>
+                                <p className="text-[10px] text-green-300 font-black uppercase tracking-widest mt-1">Sourcing Asset Pool: {activeUnitForInventory.name}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowUnitInventoryModal(false)}><X size={24}/></button>
+                    </div>
+                    <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[60vh]">
+                        <p className="text-xs text-slate-400 font-medium leading-relaxed">Assign existing enterprise assets to this production node. Only Machinery, Equipment and Consumables are eligible for spatial deployment.</p>
+                        <div className="space-y-2">
+                            {selectedEnterprise?.resources?.filter((r: Resource) => [ResourceType.Machinery, ResourceType.Equipment, ResourceType.Consumable].includes(r.type)).map((res: Resource) => (
+                                <button 
+                                    key={res.id} 
+                                    onClick={() => setSelectedResourceIds(prev => prev.includes(res.id) ? prev.filter(id => id !== res.id) : [...prev, res.id])}
+                                    className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${selectedResourceIds.includes(res.id) ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-100 hover:border-slate-200'}`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`p-2 rounded-xl ${res.type === ResourceType.Machinery ? 'bg-amber-100 text-amber-600' : res.type === ResourceType.Equipment ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                            {res.type === ResourceType.Machinery && <Tractor size={18}/>}
+                                            {res.type === ResourceType.Equipment && <Wrench size={18}/>}
+                                            {res.type === ResourceType.Consumable && <Droplets size={18}/>}
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-black text-slate-700">{res.name}</p>
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{res.id} • {res.status}</p>
+                                        </div>
+                                    </div>
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${selectedResourceIds.includes(res.id) ? 'bg-emerald-600 text-white' : 'border-2 border-slate-200'}`}>
+                                        {selectedResourceIds.includes(res.id) && <Check size={14}/>}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                        <button onClick={handleSaveUnitInventory} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
+                            <Save size={18}/> Update Allocation
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {showHarvestModal && (
             <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
                 <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
@@ -618,7 +673,6 @@ const Production: React.FC<ProductionProps> = ({
             </div>
         )}
 
-        {/* MODALS REMAIND UNCHANGED IN FUNCTION BUT STYLED COMPACTLY */}
         {showOpModal && (
             <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in"><div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"><div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center"><h3 className="text-xl font-black">Initialize Task</h3><button onClick={() => setShowOpModal(false)}><X size={24}/></button></div><div className="p-8 space-y-4"><input value={newOp.activity} onChange={(e)=>setNewOp({...newOp, activity: e.target.value})} placeholder="Label..." className="w-full px-5 py-3.5 bg-slate-50 rounded-xl font-bold text-sm outline-none" /><div className="grid grid-cols-2 gap-4"><select value={newOp.field} onChange={(e)=>setNewOp({...newOp, field: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 rounded-xl font-bold text-sm"><option value="">Plot...</option>{selectedEnterprise?.units?.map((u: any) => <option key={u.id} value={u.name}>{u.name}</option>)}</select><select value={newOp.type} onChange={(e:any)=>setNewOp({...newOp, type: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 rounded-xl font-bold text-sm"><option value="Production">Production</option><option value="Harvest">Harvest</option></select></div><button onClick={handleSaveOp} className="w-full py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest">Activate</button></div></div></div>
         )}
@@ -642,7 +696,6 @@ const Production: React.FC<ProductionProps> = ({
             </div>
         )}
 
-        {/* Enterprise Modal: Auto-populated with GIS details */}
         {showEnterpriseModal && (
             <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
                 <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
@@ -699,6 +752,86 @@ const Production: React.FC<ProductionProps> = ({
                     <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
                         <button onClick={handleAddEnterprise} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
                             <Save size={18}/> Commit to Registry
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {showAssetModal && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
+                    <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Archive size={24} className="text-[#FBBF24]"/></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Register New Asset</h3>
+                                <p className="text-[10px] text-green-300 font-black uppercase tracking-widest mt-1">Enterprise Inventory Registry</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowAssetModal(false)}><X size={24}/></button>
+                    </div>
+                    <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[70vh]">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asset Type</label>
+                            <select value={newAsset.type} onChange={(e)=>setNewAsset({...newAsset, type: e.target.value as ResourceType})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
+                                {Object.values(ResourceType).map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asset Name</label>
+                            <input value={newAsset.name} onChange={(e)=>setNewAsset({...newAsset, name: e.target.value})} placeholder="e.g. John Deere 5055E..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Cost (E)</label><input type="number" value={newAsset.unitCost} onChange={(e)=>setNewAsset({...newAsset, unitCost: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity/Stock</label><input type="number" value={newAsset.quantity} onChange={(e)=>setNewAsset({...newAsset, quantity: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                        <button onClick={handleSaveAsset} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
+                            <Save size={18}/> Commit Asset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {showUsageModal && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
+                    <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Calculator size={24} className="text-[#FBBF24]"/></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Log Asset Usage</h3>
+                                <p className="text-[10px] text-green-300 font-black uppercase tracking-widest mt-1">Cost Attribution Registry</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowUsageModal(false)}><X size={24}/></button>
+                    </div>
+                    <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[70vh]">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resource</label>
+                            <select value={usageLogEntry.resourceId} onChange={(e)=>setUsageLogEntry({...usageLogEntry, resourceId: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
+                                <option value="">Select Resource...</option>
+                                {selectedEnterprise?.resources?.map((r: Resource) => <option key={r.id} value={r.id}>{r.name} ({r.type})</option>)}
+                            </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Duration (Hours)</label><input type="number" value={usageLogEntry.hoursUsed} onChange={(e)=>setUsageLogEntry({...usageLogEntry, hoursUsed: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity (If Consumable)</label><input type="number" value={usageLogEntry.quantityUsed} onChange={(e)=>setUsageLogEntry({...usageLogEntry, quantityUsed: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Operation Linkage (Optional)</label>
+                            <select value={usageLogEntry.operationId} onChange={(e)=>setUsageLogEntry({...usageLogEntry, operationId: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
+                                <option value="">General Usage (No Op)</option>
+                                {selectedEnterprise?.operations?.filter((op:any) => op.status !== 'Completed').map((op: any) => <option key={op.id} value={op.id}>{op.activity} - {op.field}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                        <button onClick={handleSaveUsage} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
+                            <Save size={18}/> Record Entry
                         </button>
                     </div>
                 </div>

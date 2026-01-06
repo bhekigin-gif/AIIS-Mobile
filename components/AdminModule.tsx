@@ -18,7 +18,8 @@ import {
     Download,
     DatabaseZap,
     Network,
-    HardDriveDownload
+    HardDriveDownload,
+    Phone
 } from 'lucide-react';
 import { 
     View_All_System_Users, 
@@ -33,13 +34,13 @@ import {
     Register_New_User
 } from '../services/adminDataService';
 import { db, Table as DbTable } from '../services/databaseService';
-import { UserRole, CatalogueItem, IndicatorItem, SalesProduct, UserProfile, Region, ActorType, EntityType } from '../types';
+import { UserRole, CatalogueItem, IndicatorItem, SalesProduct, UserProfile, Region, ActorType, EntityType, RDAs } from '../types';
 
 interface AdminModuleProps {
     currentUser: UserProfile | null;
 }
 
-// Entity Template Definitions for Data Hub
+// Full 13-field Entity Template for Data Hub
 const DATA_SCHEMAS = [
     {
         id: 'users',
@@ -47,13 +48,19 @@ const DATA_SCHEMAS = [
         icon: <Users size={20}/>,
         description: 'Primary identity records for all agricultural stakeholders.',
         fields: [
-            { key: 'id', label: 'Identity PIN', required: true, hint: 'Unique ID/Passport' },
-            { key: 'name', label: 'Full Name', required: true },
+            { key: 'id', label: 'National ID', required: true, hint: 'Unique PIN' },
+            { key: 'firstName', label: 'First Name', required: true },
+            { key: 'lastName', label: 'Last Name', required: true },
+            { key: 'contact', label: 'Contacts', required: true },
+            { key: 'gender', label: 'Gender', required: true },
+            { key: 'role', label: 'System Role', required: true, hint: 'Farmer, Gov, etc' },
+            { key: 'entityType', label: 'Institution type', required: true },
+            { key: 'country', label: 'Country', required: true },
+            { key: 'region', label: 'Region', required: true },
+            { key: 'rda', label: 'RDA', required: true },
+            { key: 'tinkhundla', label: 'Constituency', required: true },
             { key: 'email', label: 'Email', required: false },
-            { key: 'role', label: 'System Role', required: true, hint: 'Farmer, Government, etc' },
-            { key: 'actorType', label: 'Institutional Actor', required: true, hint: 'Supplier, Processor, etc' },
-            { key: 'region', label: 'Admin Region', required: true },
-            { key: 'status', label: 'Current Status', required: false, default: 'Active' }
+            { key: 'status', label: 'Status', required: false, default: 'Active' }
         ]
     },
     {
@@ -87,16 +94,6 @@ const DATA_SCHEMAS = [
     }
 ];
 
-const PERMISSIONS_MATRIX = [
-    { component: "National Dashboard", guest: "Public Summary", farmer: "Personal Stats", extension: "Regional View", government: "National Analytics" },
-    { component: "Trade Hub (Market)", guest: "Browse & Prices", farmer: "List & Purchase", extension: "Verify Listings", government: "Regulate & Audit" },
-    { component: "Ops Manager (Prod)", guest: "No Access", farmer: "Full Cycle Mgmt", extension: "Technical Audit", government: "Global Monitoring" },
-    { component: "AI Expert Advisor", guest: "General Info", farmer: "Pathology Expert", extension: "Diagnostic Node", government: "Policy Advisory" },
-    { component: "Information Centre", guest: "Read Only", farmer: "Read/Download", extension: "Technical Access", government: "Publish & Edit" },
-    { component: "Capacity Building", guest: "User Stories", farmer: "Knowledge Bank", extension: "Training Node", government: "Strategy Review" },
-    { component: "Oversight Module", guest: "No Access", farmer: "No Access", extension: "Regional Admin", government: "Full Master Control" },
-];
-
 const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     const [activeTab, setActiveTab] = useState('overview');
     
@@ -111,6 +108,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     // Dropdown Management State
     const [selectedDropdownKey, setSelectedDropdownKey] = useState<string>('units');
     const [newOptionValue, setNewOptionValue] = useState('');
+    const [managingRdaRegion, setManagingRdaRegion] = useState<Region>(Region.Hhohho);
 
     // Data Hub State
     const [selectedSchema, setSelectedSchema] = useState(DATA_SCHEMAS[0]);
@@ -139,17 +137,14 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
 
     const [catalogueSearch, setCatalogueSearch] = useState('');
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // --- Action Handlers ---
 
-    // Fix for Error in file components/AdminModule.tsx on line 404 & 406: Cannot find name 'handleUserStatusChange'.
     const handleUserStatusChange = async (userId: string, status: string) => {
         await updateUserStatus(userId, status);
         await loadData();
     };
 
-    // Fix for Error in file components/AdminModule.tsx on line 484: Cannot find name 'handleBulkApprove'.
     const handleBulkApprove = async () => {
         if (selectedItemIds.length === 0) return;
         await Bulk_Update_Catalogue_Status(selectedItemIds, 'Vetted');
@@ -157,7 +152,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         await loadData();
     };
 
-    // Fix for Error in file components/AdminModule.tsx on line 485: Cannot find name 'handleBulkDelete'.
     const handleBulkDelete = async () => {
         if (selectedItemIds.length === 0) return;
         if (window.confirm(`Delete ${selectedItemIds.length} items from the master catalogue?`)) {
@@ -167,27 +161,42 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         }
     };
 
-    // Fix for Error in file components/AdminModule.tsx on line 527 & 549: Cannot find name 'handleUpdateDropdownOption'.
     const handleUpdateDropdownOption = async (deleteValue?: string) => {
-        const currentList = [...(systemMetadata[selectedDropdownKey] || [])];
-        let newList;
-        
-        if (deleteValue) {
-            newList = currentList.filter(item => {
-                const val = typeof item === 'string' ? item : (item as any).id;
-                return val !== deleteValue;
-            });
-        } else {
-            if (!newOptionValue.trim()) return;
-            if (currentList.some(item => (typeof item === 'string' ? item : (item as any).name) === newOptionValue.trim())) {
-                alert("Option already exists.");
-                return;
+        const currentMetadata = await Get_System_Metadata();
+        let updatedMetadata = { ...currentMetadata };
+
+        if (selectedDropdownKey === 'rdas') {
+            const currentRdas = [...(updatedMetadata.rdas[managingRdaRegion] || [])];
+            let newRdas;
+            if (deleteValue) {
+                newRdas = currentRdas.filter(r => r !== deleteValue);
+            } else {
+                if (!newOptionValue.trim()) return;
+                if (currentRdas.includes(newOptionValue.trim())) return alert("Option exists.");
+                newRdas = [...currentRdas, newOptionValue.trim()];
             }
-            newList = [...currentList, newOptionValue.trim()];
+            updatedMetadata.rdas = { ...updatedMetadata.rdas, [managingRdaRegion]: newRdas };
+        } else {
+            const currentList = [...(updatedMetadata[selectedDropdownKey] || [])];
+            let newList;
+            if (deleteValue) {
+                newList = currentList.filter(item => {
+                    const val = typeof item === 'string' ? item : (item as any).id;
+                    return val !== deleteValue;
+                });
+            } else {
+                if (!newOptionValue.trim()) return;
+                if (currentList.some(item => (typeof item === 'string' ? item : (item as any).name) === newOptionValue.trim())) {
+                    alert("Option already exists.");
+                    return;
+                }
+                newList = [...currentList, newOptionValue.trim()];
+            }
+            updatedMetadata[selectedDropdownKey] = newList;
         }
 
-        const updated = await Update_System_Metadata(selectedDropdownKey, newList);
-        setSystemMetadata(updated);
+        await db.saveAll(DbTable.Metadata, [updatedMetadata]);
+        setSystemMetadata(updatedMetadata);
         setNewOptionValue('');
     };
 
@@ -235,13 +244,23 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             if (selectedSchema.id === 'users') {
                 const users: UserProfile[] = hubCsvDataRows.map(row => {
                     const get = (k: string) => row[hubCsvHeaders.indexOf(hubFieldMap[k])] || '';
+                    const fname = get('firstName');
+                    const lname = get('lastName');
                     return {
                         id: get('id'),
-                        name: get('name'),
+                        name: `${fname} ${lname}`,
+                        firstName: fname,
+                        lastName: lname,
                         email: get('email'),
                         role: get('role') as UserRole,
-                        actorType: get('actorType') as ActorType,
+                        actorType: get('role') as any, // Simple mapping
                         region: get('region'),
+                        tinkhundla: get('tinkhundla'),
+                        rda: get('rda'),
+                        country: get('country'),
+                        contact: get('contact'),
+                        gender: get('gender'),
+                        entityType: get('entityType') as EntityType,
                         status: (get('status') as any) || 'Active',
                         dateRegistered: new Date().toISOString().split('T')[0]
                     };
@@ -408,54 +427,75 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         <div className="space-y-2 animate-fade-in flex flex-col h-[calc(100vh-200px)]">
             <div className="bg-white p-2 rounded-xl border border-slate-100 flex items-center shrink-0">
                 <Search className="ml-2 text-slate-300" size={14} />
-                <input type="text" placeholder="Search registry by name or ID..." value={userSearch} onChange={(e) => setUserSearch(e.target.value)} className="w-full px-2 py-1.5 bg-transparent font-bold text-[11px] outline-none" />
+                <input type="text" placeholder="Search registry by name or National ID..." value={userSearch} onChange={(e) => setUserSearch(e.target.value)} className="w-full px-2 py-1.5 bg-transparent font-bold text-[11px] outline-none" />
                 {!isNationalAdmin && <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[7px] font-black uppercase">{currentRegion} Region</span>}
             </div>
-            <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-y-auto no-scrollbar">
-                <table className="w-full text-left">
+            <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-x-auto no-scrollbar">
+                <table className="w-full text-left border-collapse min-w-[1400px]">
                     <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-widest sticky top-0 z-10">
                         <tr>
-                            <th className="p-4">Institutional Persona</th>
-                            <th className="p-4">Contact (Email)</th>
+                            <th className="p-4 sticky left-0 bg-[#1B4D3E] z-20">Full Name / Persona</th>
+                            <th className="p-4">National ID (PIN)</th>
+                            <th className="p-4">Communication Node</th>
+                            <th className="p-4 text-center">Gender</th>
+                            <th className="p-4 text-center">Institution Node</th>
+                            <th className="p-4 text-center">Operational Area (Region/RDA/Constituency)</th>
                             <th className="p-4 text-center">Status</th>
-                            <th className="p-4 text-center">Region</th>
-                            <th className="p-4 text-right">Actions</th>
+                            <th className="p-4 text-right sticky right-0 bg-[#1B4D3E] z-20">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {allUsers.filter(u => 
                             u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
-                            u.id?.toLowerCase().includes(userSearch.toLowerCase())
+                            u.id?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                            u.firstName?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                            u.lastName?.toLowerCase().includes(userSearch.toLowerCase())
                         ).map(u => (
-                            <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-3">
+                            <tr key={u.id} className="hover:bg-slate-50 transition-colors group">
+                                <td className="p-3 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
                                     <div className="flex items-center gap-2">
                                         <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[#1B4D3E] font-black text-[10px]">
-                                            {u.name.charAt(0)}
+                                            {u.firstName?.charAt(0) || u.name.charAt(0)}
                                         </div>
                                         <div>
-                                            <p className="font-black text-slate-700 text-[11px]">{u.name}</p>
-                                            <p className="text-[7px] text-slate-400 font-black leading-none mt-0.5 uppercase">{u.actorType}</p>
+                                            <p className="font-black text-slate-700 text-[11px]">{u.firstName} {u.lastName}</p>
+                                            <p className="text-[7px] text-slate-400 font-black leading-none mt-0.5 uppercase">{u.role} - {u.actorType}</p>
                                         </div>
                                     </div>
+                                </td>
+                                <td className="p-3">
+                                    <div className="flex items-center gap-1.5"><Fingerprint size={10} className="text-indigo-400" /><span className="font-mono text-indigo-600 font-black text-[10px]">{u.id}</span></div>
                                 </td>
                                 <td className="p-3">
                                     <div className="flex flex-col gap-0.5 text-slate-500 font-bold text-[10px]">
-                                        <div className="flex items-center gap-1.5"><Mail size={10} className="text-slate-300" /><span className="truncate max-w-[150px]">{u.email || 'No email provided'}</span></div>
+                                        <div className="flex items-center gap-1.5"><Mail size={10} className="text-slate-300" /><span className="truncate max-w-[150px]">{u.email || 'N/A'}</span></div>
+                                        <div className="flex items-center gap-1.5"><Phone size={10} className="text-slate-300" /><span>{u.contact || 'N/A'}</span></div>
+                                    </div>
+                                </td>
+                                <td className="p-3 text-center"><span className="text-[9px] font-black text-slate-400 uppercase">{u.gender || '-'}</span></td>
+                                <td className="p-3 text-center">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[9px] font-black text-slate-700 uppercase">{u.entityType}</p>
+                                        <p className="text-[8px] text-slate-400 italic truncate max-w-[100px] mx-auto">{u.organization || 'Individual'}</p>
+                                    </div>
+                                </td>
+                                <td className="p-3 text-center">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[9px] font-black text-[#1B4D3E] uppercase">{u.country} • {u.region}</p>
+                                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">{u.rda || 'All'} RDA • {u.tinkhundla || 'General'}</p>
                                     </div>
                                 </td>
                                 <td className="p-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${u.status === 'Active' ? 'bg-green-50 text-green-700' : u.status === 'Suspended' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{u.status}</span></td>
-                                <td className="p-3 text-center"><span className="text-[9px] font-bold text-slate-500 uppercase">{u.region}</span></td>
-                                <td className="p-3 text-right">
+                                <td className="p-3 text-right sticky right-0 bg-white group-hover:bg-slate-50 z-10">
                                     <div className="flex justify-end items-center gap-2">
                                         {u.id !== 'ADMIN' && (
                                             <>
                                                 {u.status !== 'Active' ? (
-                                                    <button onClick={() => handleUserStatusChange(u.id!, 'Active')} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"><UserCheck size={14} /></button>
+                                                    <button onClick={() => handleUserStatusChange(u.id!, 'Active')} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Activate"><UserCheck size={14} /></button>
                                                 ) : (
-                                                    <button onClick={() => handleUserStatusChange(u.id!, 'Suspended')} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"><UserMinus size={14} /></button>
+                                                    <button onClick={() => handleUserStatusChange(u.id!, 'Suspended')} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Suspend"><UserMinus size={14} /></button>
                                                 )}
-                                                <button onClick={async () => { if(window.confirm("Remove user?")) { await db.delete(DbTable.Users, u.id!); loadData(); } }} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"><Trash size={14} /></button>
+                                                <button onClick={async () => { if(window.confirm("Remove user node?")) { await db.delete(DbTable.Users, u.id!); loadData(); } }} className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Remove"><Trash size={14} /></button>
                                             </>
                                         )}
                                     </div>
@@ -550,24 +590,41 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Control Global UI Dropdown Options</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase">Managing List:</label>
-                    <select 
-                        value={selectedDropdownKey} 
-                        onChange={(e) => setSelectedDropdownKey(e.target.value)}
-                        className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-[10px] outline-none focus:ring-2 focus:ring-[#1B4D3E]/10 transition-all uppercase"
-                    >
-                        {Object.keys(systemMetadata || {}).filter(k => Array.isArray(systemMetadata[k])).map(key => (
-                            <option key={key} value={key}>{key.replace(/([A-Z])/g, ' $1').trim()}</option>
-                        ))}
-                    </select>
+                <div className="flex items-center gap-4">
+                    {selectedDropdownKey === 'rdas' && (
+                        <div className="flex items-center gap-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase">Region Scope:</label>
+                            <select 
+                                value={managingRdaRegion} 
+                                onChange={(e) => setManagingRdaRegion(e.target.value as Region)}
+                                className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-[10px] outline-none uppercase"
+                            >
+                                {Object.values(Region).filter(r => r !== Region.All).map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase">Managing List:</label>
+                        <select 
+                            value={selectedDropdownKey} 
+                            onChange={(e) => setSelectedDropdownKey(e.target.value)}
+                            className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-[10px] outline-none focus:ring-2 focus:ring-[#1B4D3E]/10 transition-all uppercase"
+                        >
+                            {Object.keys(systemMetadata || {}).filter(k => Array.isArray(systemMetadata[k]) || k === 'rdas').map(key => (
+                                <option key={key} value={key}>{key.replace(/([A-Z])/g, ' $1').trim()}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
             
             <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
                 <div className="flex-1 overflow-y-auto p-6 border-r border-slate-100 no-scrollbar">
                     <div className="space-y-2">
-                        {systemMetadata?.[selectedDropdownKey]?.map((option: any, i: number) => {
+                        {(selectedDropdownKey === 'rdas' 
+                            ? (systemMetadata?.[selectedDropdownKey]?.[managingRdaRegion] || []) 
+                            : (systemMetadata?.[selectedDropdownKey] || [])
+                        ).map((option: any, i: number) => {
                             const label = typeof option === 'string' ? option : (option.name || option.id || JSON.stringify(option));
                             const value = typeof option === 'string' ? option : option.id;
                             return (

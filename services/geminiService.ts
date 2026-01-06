@@ -52,7 +52,10 @@ export const chatWithAgriBot = async (
     });
     const parts: any[] = [{ text: message }];
     if (attachment) parts.push({ inlineData: attachment });
-    const result = await chat.sendMessage({ message: { parts } });
+    
+    // FIX: sendMessage expects 'message' to be string | Part | Part[]
+    // Passing the array directly to correctly handle multi-part messages
+    const result = await chat.sendMessage({ message: parts });
     return { text: result.text || "...", groundingMetadata: result.candidates?.[0]?.groundingMetadata };
   } catch (error) { return { text: "Connection issues." }; }
 };
