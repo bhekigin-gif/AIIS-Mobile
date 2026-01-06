@@ -60,9 +60,9 @@ const Sidebar: React.FC<SidebarProps> = ({
              </button>
           </div>
 
-          <div className={`bg-white rounded-2xl flex items-center justify-center shadow-inner transition-all duration-500 overflow-hidden relative group
-            ${isCollapsed ? 'w-12 h-12 p-2' : 'w-full h-24 p-4'}`}>
-             <img src={LOGO_PATH} alt="AIIS Logo" className="w-full h-full object-contain transition-transform group-hover:scale-110" />
+          <div className={`flex items-center justify-center transition-all duration-500 overflow-hidden relative group
+            ${isCollapsed ? 'w-12 h-12' : 'w-24 h-24'}`}>
+             <img src={LOGO_PATH} alt="AIIS Logo" className="w-full h-full object-contain transition-transform group-hover:scale-110 drop-shadow-lg" />
           </div>
           
           {!isCollapsed && (

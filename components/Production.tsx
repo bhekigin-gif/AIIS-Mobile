@@ -14,7 +14,8 @@ import {
   ClipboardType, Filter, Calculator, UserCheck, Wrench, SearchCode,
   Globe, Sparkles, PackagePlus, Briefcase, Fingerprint, Receipt,
   Tags, ArrowUpRight, BarChart4, ChevronLeft, PieChart,
-  TrendingDown, Scale, MapPinned, Camera, Upload
+  TrendingDown, Scale, MapPinned, Camera, Upload,
+  Minimize2
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
@@ -70,6 +71,7 @@ const Production: React.FC<ProductionProps> = ({
   const [drawingManager, setDrawingManager] = useState<any>(null);
   const markersRef = useRef<any[]>([]);
   const polygonsRef = useRef<any[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   const isPlacingModeRef = useRef(false);
 
@@ -194,8 +196,20 @@ const Production: React.FC<ProductionProps> = ({
                 center: selectedEnterprise?.gps || { lat: -26.48, lng: 31.37 },
                 zoom: selectedEnterprise ? 18 : 11,
                 mapTypeId: 'hybrid',
-                disableDefaultUI: true,
-                gestureHandling: 'greedy'
+                disableDefaultUI: true, // Custom UI will be added on top
+                gestureHandling: 'greedy',
+                styles: [
+                  {
+                    featureType: "poi",
+                    elementType: "labels",
+                    stylers: [{ visibility: "on" }]
+                  },
+                  {
+                    featureType: "road",
+                    elementType: "labels",
+                    stylers: [{ visibility: "on" }]
+                  }
+                ]
             });
             setMapInstance(map);
 
@@ -351,6 +365,12 @@ const Production: React.FC<ProductionProps> = ({
     setShowHarvestModal(false); setFinishingOp(null); await loadAllData(selectedEntId);
   };
 
+  const handleMapZoom = (dir: 'in' | 'out') => {
+      if (!mapInstance) return;
+      const current = mapInstance.getZoom();
+      mapInstance.setZoom(dir === 'in' ? current + 1 : current - 1);
+  };
+
   const renderInventory = () => (
       <div className="space-y-4 animate-fade-in pb-20">
           <div className="bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
@@ -446,11 +466,35 @@ const Production: React.FC<ProductionProps> = ({
                         </div>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 overflow-hidden">
-                        <div className={`lg:col-span-3 relative bg-white rounded-[2rem] border border-slate-100 shadow-lg overflow-hidden h-[400px] lg:h-full`}>
+                        <div className={`lg:col-span-3 relative bg-white rounded-[2rem] border border-slate-100 shadow-lg overflow-hidden h-[400px] lg:h-full group/map ${isFullscreen ? 'fixed inset-0 z-[200] !m-0 !rounded-none' : ''}`}>
                             {(isLoading || isResolvingGIS) && (<div className="absolute inset-0 z-40 bg-slate-100/50 backdrop-blur-sm flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin text-[#1B4D3E]" size={32} /></div>)}
                             <div ref={mapRef} className="w-full h-full z-10 bg-slate-200" />
+                            
+                            {/* Map Control Overlays */}
+                            <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+                                <button 
+                                    onClick={() => setIsFullscreen(!isFullscreen)}
+                                    className="p-3 bg-white/95 backdrop-blur-md text-[#1B4D3E] rounded-2xl shadow-xl hover:bg-emerald-50 transition-all border border-slate-200"
+                                    title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                                >
+                                    {isFullscreen ? <Minimize2 size={20}/> : <Maximize2 size={20}/>}
+                                </button>
+                                <div className="flex flex-col bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+                                    <button onClick={() => handleMapZoom('in')} className="p-3 text-[#1B4D3E] hover:bg-emerald-50 border-b border-slate-100 transition-colors" title="Zoom In"><ZoomIn size={20}/></button>
+                                    <button onClick={() => handleMapZoom('out')} className="p-3 text-[#1B4D3E] hover:bg-emerald-50 transition-colors" title="Zoom Out"><ZoomOut size={20}/></button>
+                                </div>
+                            </div>
+
+                            {/* Legend / Info Box */}
+                            <div className="absolute bottom-6 left-6 z-20 bg-[#1B4D3E]/90 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-white shadow-2xl max-w-xs animate-fade-in hidden sm:block">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Info size={14} className="text-[#FBBF24]"/>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Map Reference</span>
+                                </div>
+                                <p className="text-[10px] font-medium opacity-80 leading-relaxed">Labels for towns, roads and institutional POIs are active. High-fidelity satellite nodes update via National GIS server.</p>
+                            </div>
                         </div>
-                        <div className="lg:col-span-1 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col overflow-hidden h-[300px] lg:h-full">
+                        <div className={`lg:col-span-1 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col overflow-hidden h-[300px] lg:h-full ${isFullscreen ? 'hidden' : ''}`}>
                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Building2 size={12}/> Node Registry</h4>
                             <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
                                 {enterprises.map(ent => (
