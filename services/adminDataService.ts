@@ -8,9 +8,32 @@ const INITIAL_METADATA = {
     actorTypes: Object.values(ActorType),
     entityTypes: Object.values(EntityType),
     resourceTypes: Object.values(ResourceType),
-    commodityCategories: ['Maize', 'Legumes', 'Vegetables', 'Sugar', 'Livestock', 'Citrus', 'Cotton', 'Crops', 'Processed Food', 'Machinery', 'Equipment', 'Services'],
-    units: ['kg', 'Ton', 'Crate', 'Pack', 'Unit', 'Litre', 'Bag', 'Bottle', 'Head'],
-    operationTypes: ['Production', 'Harvest', 'Processing', 'Maintenance', 'Service'],
+    divisions: [
+        'Consumables (Biological & Chemical)',
+        'Mechanisation',
+        'Equipment & Infrastructure',
+        'Labour & Services',
+        'Administrative & Economic'
+    ],
+    categoriesByDivision: {
+        'Consumables (Biological & Chemical)': [
+            'Chemicals', 'Crops/Seeds', 'Feeds', 'Fish', 'Foods', 
+            'Livestock', 'Nurseries', 'Water', 'Veterinary Medicines'
+        ],
+        'Mechanisation': [
+            'Mechanisation', 'Industrials', 'Fuel & Energy'
+        ],
+        'Equipment & Infrastructure': [
+            'Manual Tools', 'Structures', 'Irrigation Systems', 'Safety Gear'
+        ],
+        'Labour & Services': [
+            'Manual Labour', 'Skilled Labour', 'Services', 'Finances', 'Forestry', 'Logistics'
+        ],
+        'Administrative & Economic': [
+            'Demands', 'Land'
+        ]
+    },
+    units: ['kg', 'Ton', 'Crate', 'Pack', 'Unit', 'Litre', 'Bag', 'Bottle', 'Head', 'kWh', 'm3', 'Man-Day'],
     genders: ['Male', 'Female', 'Other'],
     announcementCategories: ['General Announcements', 'Tenders & Vacancies', 'Weather Alerts', 'Pest & Disease Outbreaks'],
     knowledgeCategories: [
@@ -26,20 +49,47 @@ const INITIAL_METADATA = {
     ]
 };
 
-const INITIAL_USERS: UserProfile[] = [
+const ESSENTIAL_USERS: UserProfile[] = [
     { id: 'ADMIN', name: 'System Administrator', email: 'admin@moa.gov.sz', role: UserRole.Government, actorType: ActorType.Gov, region: Region.Hhohho, status: 'Active', title: 'Super User', organization: 'Ministry of Agriculture', organizationId: 'MOA-HQ' },
     { id: 'MG', name: 'Mgulukudeni Ginindza', email: 'farmer@gmail.com', role: UserRole.Farmer, actorType: ActorType.Farmer, entityType: EntityType.Person, region: Region.Manzini, tinkhundla: 'Manzini South', status: 'Active', title: 'Primary Producer', contact: '+268 7805 4321', organization: 'Ginindza Green Estate', organizationId: 'GININDZA-001' },
     { id: 'EXT', name: 'Extension Officer', email: 'extension@moa.gov.sz', role: UserRole.Extension, actorType: ActorType.Extension, region: Region.Lubombo, status: 'Active', title: 'Regional Advisor', organization: 'Ministry of Agriculture', organizationId: 'MOA-LUBOMBO' },
 ];
 
 const INITIAL_CATALOGUE: CatalogueItem[] = [
-    { registrationId: 'CAT-001', division: 'Crops', category: 'Fertilizer', subCategory: 'NPK', productType: 'Chemical', tradeName: 'NPK 2:3:2 (22)', size: '50kg', unit: 'Bag', manufacturer: 'Farm Chemicals Ltd', productStandard: 'ISO 9001', description: 'Basal Fertilizer', availableDistrict: 'National', availableRDA: 'All', availableConstituency: 'All', availableRegNo: 'REG-001', status: 'Vetted' },
+    { 
+        registrationId: 'CAT-001', 
+        division: 'Consumables (Biological & Chemical)', 
+        category: 'Chemicals', 
+        subCategory: 'NPK', 
+        productType: 'Biological', 
+        tradeName: 'NPK 2:3:2 (22)', 
+        size: '50kg', 
+        unit: 'Bag', 
+        manufacturerName: 'Farm Chemicals Ltd', 
+        manufacturerUrl: 'https://farmchemicals.co.sz',
+        productStandardDescription: 'ISO 9001:2015 Fertilizer Standard', 
+        productStandardUrl: 'https://sabs.co.za/iso9001',
+        description: 'Basal Fertilizer for summer crops', 
+        availableDistrict: 'National', 
+        availableRDA: 'All', 
+        availableConstituency: 'All', 
+        availableRegNo: 'REG-001', 
+        status: 'Vetted' 
+    },
 ];
 
-// Seed Database if empty
 export const Initialize_Database = async () => {
-    const users = await db.getAll(Table.Users);
-    if (users.length === 0) await db.saveAll(Table.Users, INITIAL_USERS);
+    let users = await db.getAll<UserProfile>(Table.Users);
+    let usersUpdated = false;
+    for (const essential of ESSENTIAL_USERS) {
+        if (!users.find(u => u.id === essential.id)) {
+            users.push(essential);
+            usersUpdated = true;
+        }
+    }
+    if (usersUpdated || users.length === 0) {
+        await db.saveAll(Table.Users, users);
+    }
 
     const meta = await db.getAll(Table.Metadata);
     if (meta.length === 0) await db.saveAll(Table.Metadata, [INITIAL_METADATA]);
@@ -121,17 +171,6 @@ export const Bulk_Update_Catalogue_Status = async (ids: string[], status: string
     return updated;
 };
 
-export const Update_Catalogue_Status = async (registrationId: string, status: string) => {
-    const current = await db.getAll<any>(Table.Catalogue);
-    const index = current.findIndex((i: any) => i.registrationId === registrationId || i.id === registrationId);
-    if (index > -1) {
-        current[index].status = status;
-        await db.saveAll(Table.Catalogue, current);
-        return true;
-    }
-    return false;
-};
-
 export const Affiliate_User_With_Org = async (userId: string, orgId: string, orgName: string) => {
     return db.update<UserProfile>(Table.Users, userId, { organizationId: orgId, organization: orgName });
 };
@@ -141,7 +180,6 @@ export const View_Trading_Catalogue_Items = () => db.getAll<SalesProduct>(Table.
 export const addProductToRegistry = (product: SalesProduct) => db.insert(Table.Products, product);
 
 export const Report_AIIS_Indicators = (reportType: 'MALABO' | 'NATIONAL' = 'NATIONAL'): IndicatorItem[] => {
-    // Note: In a production system, these would aggregate live DB stats.
     if (reportType === 'MALABO') {
         return [
             { id: 'M1.1', commitment: 'CAADP Process', label: 'Biennial Review Participation', value: 10, target: 10, unit: ' Score', status: 'Milestone Reached', trend: 'stable' },

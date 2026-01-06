@@ -27,10 +27,11 @@ interface MarketplaceProps {
 
 const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
 
+// Updated mapping to match CatalogueItem property names correctly
 const MAPPABLE_FIELDS = [
     { key: 'registrationId', label: 'Registry ID' },
     { key: 'tradeName', label: 'Trade Name' },
-    { key: 'manufacturer', label: 'Manufacturer' },
+    { key: 'manufacturerName', label: 'Manufacturer' },
     { key: 'division', label: 'Division' },
     { key: 'category', label: 'Category' },
     { key: 'subCategory', label: 'Sub Category' },
@@ -146,8 +147,9 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
     if (!fieldMap.tradeName) return alert("Mapping for 'Trade Name' is required.");
     const items: CatalogueItem[] = csvDataRows.map((row, idx) => {
         const getVal = (k: string) => row[csvHeaders.indexOf(fieldMap[k])] || '';
+        // Fixed: Use correct CatalogueItem properties manufacturerName and productStandardDescription
         return {
-            registrationId: getVal('registrationId') || `IMP-${Date.now()}-${idx}`, tradeName: getVal('tradeName') || 'Untitled', manufacturer: getVal('manufacturer') || 'Unknown', category: getVal('category') || 'General', division: getVal('division') || 'Crops', subCategory: getVal('subCategory') || 'N/A', productType: getVal('productType') || 'Standard', unit: getVal('unit') || 'Unit', description: getVal('description') || 'Imported batch', productStandard: 'ISO-Standard', availableDistrict: 'National', availableRDA: 'All', availableConstituency: 'All', availableRegNo: 'REG-IMP', status: 'Pending'
+            registrationId: getVal('registrationId') || `IMP-${Date.now()}-${idx}`, tradeName: getVal('tradeName') || 'Untitled', manufacturerName: getVal('manufacturerName') || 'Unknown', category: getVal('category') || 'General', division: getVal('division') || 'Crops', subCategory: getVal('subCategory') || 'N/A', productType: getVal('productType') || 'Standard', unit: getVal('unit') || 'Unit', description: getVal('description') || 'Imported batch', productStandardDescription: 'ISO-Standard', availableDistrict: 'National', availableRDA: 'All', availableConstituency: 'All', availableRegNo: 'REG-IMP', status: 'Pending'
         };
     });
     await Add_To_Master_Catalogue(items);
@@ -178,7 +180,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                     <p className="text-[10px] font-mono text-slate-300 font-black uppercase tracking-widest">{item.registrationId}</p>
                                 </div>
                                 <h4 className="font-black text-slate-800 text-xl leading-tight mb-2 group-hover:text-indigo-900 transition-colors">{item.tradeName}</h4>
-                                <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-8">{item.manufacturer}</p>
+                                <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-8">{item.manufacturerName}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100"><p className="text-[9px] font-black text-slate-400 uppercase mb-1">Standard Unit</p><p className="text-sm font-black text-slate-800">{item.unit}</p></div>
@@ -352,7 +354,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                 <div className="h-56 bg-slate-200 relative overflow-hidden">
                                     <img src={product.image || PLACE_HOLDER_IMAGE} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
                                     <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black text-[#1B4D3E] shadow-xl uppercase tracking-[0.2em] border border-white/40">{product.region}</div>
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div className="absolute inset-0 bg-gradient-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 </div>
                                 <div className="p-8">
                                     <h4 className="font-black text-slate-800 text-xl line-clamp-1 group-hover:text-[#1B4D3E] transition-colors">{product.name}</h4>

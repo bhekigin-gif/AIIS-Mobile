@@ -1,4 +1,5 @@
 
+
 export enum Region {
   Hhohho = 'Hhohho',
   Manzini = 'Manzini',
@@ -8,10 +9,10 @@ export enum Region {
 }
 
 export enum UserRole {
-  Farmer = 'Farmer', // Producer/Farmer role
-  Government = 'Government', // Ministry Employee
-  Extension = 'Extension', // NGO/Partner/Extension worker
-  Guest = 'Guest', // Not registered/Public
+  Farmer = 'Farmer', 
+  Government = 'Government', 
+  Extension = 'Extension', 
+  Guest = 'Guest', 
 }
 
 export enum ActorType {
@@ -56,17 +57,17 @@ export interface Resource {
     id: string;
     type: ResourceType;
     name: string;
-    unitNumber: string; // Serial/Employee ID
+    unitNumber: string;
     category: string;
-    unitCost: number; // E/hr or E/unit
+    unitCost: number;
     quantity: number;
-    threshold?: number; // Low stock alert threshold
-    totalUsageHours?: number; // Tracked utilization
-    assignedUnitId: string; // Foreign Key to Operational Unit
+    threshold?: number;
+    totalUsageHours?: number;
+    assignedUnitId: string;
     status: 'Available' | 'In Use' | 'Maintenance' | 'Low Stock';
     details?: string;
     catalogueRef?: string;
-    linkedUserId?: string; // Link to a system user profile
+    linkedUserId?: string;
 }
 
 export interface UserProfile {
@@ -87,11 +88,11 @@ export interface UserProfile {
   contact?: string;
   gender?: string;
   organization?: string;
-  organizationId?: string; // Strict ID for data scoping
-  functionalRole?: string; // Position within the institution
+  organizationId?: string;
+  functionalRole?: string;
   country?: string;
   rda?: string;
-  affiliations?: string[]; // IDs of Organizations this user can operate for
+  affiliations?: string[];
 }
 
 export interface SalesProduct {
@@ -114,8 +115,8 @@ export interface SalesProduct {
     sourceUnit?: string;
     costPrice?: number;
     rejectionReason?: string;
-    operationId?: string; // Link to the operation that produced this
-    parentBatchId?: string; // Links processed items to original harvest batches
+    operationId?: string;
+    parentBatchId?: string;
 }
 
 export interface MarketCartItem extends SalesProduct {
@@ -144,34 +145,35 @@ export interface CatalogueItem {
   tradeName: string;
   size?: string;
   unit: string;
-  manufacturer: string;
-  productStandard: string;
+  manufacturerName: string;
+  manufacturerUrl?: string;
+  productStandardDescription: string;
+  productStandardUrl?: string;
   description: string;
   availableDistrict: string;
   availableRDA: string;
   availableConstituency: string;
   availableRegNo: string;
-  availableDiptank?: string;
-  image?: string;
   status?: string;
 }
 
+// Added IndicatorItem interface for administrative reporting
 export interface IndicatorItem {
-    id: string;
-    label: string;
-    value: number;
-    target?: number;
-    unit: string;
-    status: 'On Track' | 'Not on Track' | 'Milestone Reached' | 'Critical';
-    trend: 'up' | 'down' | 'stable';
-    commitment: string; // For Malabo grouping (Commitment 1-7)
-    category?: string;  // For National grouping
+  id: string;
+  commitment: string;
+  label: string;
+  value: number;
+  target: number;
+  unit: string;
+  status: string;
+  trend: 'up' | 'down' | 'stable';
+  category?: string;
 }
 
 export interface ProductionProcess {
   id: string;
   unitId: string;
-  name: string; // e.g., "Maize Cycle 2024"
+  name: string;
   commodity: string;
   status: 'Active' | 'Completed';
   totalAccumulatedCost: number;
@@ -183,16 +185,16 @@ export interface Operation {
   id: string;
   activity: string;
   type: 'Production' | 'Harvest' | 'Processing' | 'Maintenance' | 'Service';
-  field: string; // Link to unit name
-  processId?: string; // Link to the ProductionProcess container
+  field: string;
+  processId?: string;
   status: 'In Progress' | 'Scheduled' | 'Completed' | 'Paused';
   progress: number;
   startDateTime: string;
   endDateTime: string;
-  assignedResources: string[]; // IDs of resources used
+  assignedResources: string[];
   durationHours?: number;
   accumulatedCost?: number;
-  producedId?: string; // ID of product resulting from this
+  producedId?: string;
 }
 
 export interface StatData {
