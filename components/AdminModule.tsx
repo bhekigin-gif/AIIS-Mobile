@@ -12,7 +12,10 @@ import {
     XCircle, Info, Trash, Save, UserCheck, UserX, UserMinus, Mail, Link, ExternalLink,
     ChevronDown,
     LockKeyhole,
-    Camera
+    Camera,
+    ListFilter,
+    // Fix: Add missing AlertCircle import
+    AlertCircle
 } from 'lucide-react';
 import { 
     View_All_System_Users, 
@@ -77,6 +80,10 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     });
 
     const [systemMetadata, setSystemMetadata] = useState<any>(null);
+
+    // Dropdown Management State
+    const [selectedDropdownKey, setSelectedDropdownKey] = useState<string>('units');
+    const [newOptionValue, setNewOptionValue] = useState('');
 
     // Manual Item State
     const [showAddModal, setShowAddModal] = useState(false);
@@ -257,6 +264,29 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             alert(`User status successfully updated to ${newStatus}.`);
             loadData();
         }
+    };
+
+    const handleUpdateDropdownOption = async (removeValue?: string) => {
+        if (!removeValue && !newOptionValue.trim()) return;
+        
+        let currentOptions = systemMetadata[selectedDropdownKey];
+        if (!Array.isArray(currentOptions)) return;
+
+        let updatedOptions: any[];
+        if (removeValue) {
+            updatedOptions = currentOptions.filter(o => {
+                if (typeof o === 'string') return o !== removeValue;
+                if (o.id) return o.id !== removeValue;
+                return true;
+            });
+        } else {
+            if (currentOptions.includes(newOptionValue.trim())) return alert("Option already exists.");
+            updatedOptions = [...currentOptions, newOptionValue.trim()];
+        }
+
+        const updatedMeta = await Update_System_Metadata(selectedDropdownKey, updatedOptions);
+        setSystemMetadata(updatedMeta);
+        setNewOptionValue('');
     };
 
     const filteredCatalogue = catalogueItems.filter(item => {
@@ -443,6 +473,90 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         </div>
     );
 
+    const renderDropdowns = () => (
+        <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fade-in flex flex-col h-[calc(100vh-200px)]">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-[#1B4D3E] rounded-xl text-[#FBBF24]"><ListFilter size={20}/></div>
+                    <div>
+                        <h3 className="text-sm font-black text-[#1B4D3E] uppercase tracking-tight">Metadata Management</h3>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Control Global UI Dropdown Options</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase">Managing List:</label>
+                    <select 
+                        value={selectedDropdownKey} 
+                        onChange={(e) => setSelectedDropdownKey(e.target.value)}
+                        className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-[10px] outline-none focus:ring-2 focus:ring-[#1B4D3E]/10 transition-all uppercase"
+                    >
+                        {Object.keys(systemMetadata).filter(k => Array.isArray(systemMetadata[k])).map(key => (
+                            <option key={key} value={key}>{key.replace(/([A-Z])/g, ' $1').trim()}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            
+            <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
+                {/* Left: Management List */}
+                <div className="flex-1 overflow-y-auto p-6 border-r border-slate-100 no-scrollbar">
+                    <div className="space-y-2">
+                        {systemMetadata[selectedDropdownKey]?.map((option: any, i: number) => {
+                            const label = typeof option === 'string' ? option : (option.name || option.id || JSON.stringify(option));
+                            const value = typeof option === 'string' ? option : option.id;
+                            return (
+                                <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group hover:bg-slate-100 transition-colors">
+                                    <span className="text-xs font-bold text-slate-700">{label}</span>
+                                    <button 
+                                        onClick={() => handleUpdateDropdownOption(value)}
+                                        className="p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                        <Trash2 size={16}/>
+                                    </button>
+                                </div>
+                            );
+                        })}
+                        {(!systemMetadata[selectedDropdownKey] || systemMetadata[selectedDropdownKey].length === 0) && (
+                            <div className="py-20 text-center text-slate-300">
+                                <ListTree size={48} className="mx-auto mb-4 opacity-20"/>
+                                <p className="text-xs font-black uppercase tracking-widest">No options defined in this node.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right: Add Form */}
+                <div className="w-full lg:w-80 bg-slate-50/50 p-8 shrink-0">
+                    <div className="space-y-6 sticky top-0">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Append Option</label>
+                            <input 
+                                value={newOptionValue} 
+                                onChange={(e) => setNewOptionValue(e.target.value)} 
+                                placeholder="Enter value..."
+                                className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-[#1B4D3E]/5"
+                            />
+                        </div>
+                        <button 
+                            onClick={() => handleUpdateDropdownOption()}
+                            disabled={!newOptionValue.trim()}
+                            className="w-full py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all active:scale-95"
+                        >
+                            <Plus size={16}/> Add to Global Node
+                        </button>
+                        <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 space-y-2">
+                            <div className="flex items-center gap-2 text-amber-700">
+                                <AlertCircle size={14}/>
+                                <span className="text-[10px] font-black uppercase tracking-tight">Institutional Warning</span>
+                            </div>
+                            <p className="text-[10px] text-amber-800 font-medium leading-relaxed">Changes to global metadata affect all registered user forms instantly. Ensure policy alignment before committing.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
     if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
 
     return (
@@ -452,14 +566,15 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     <h2 className="text-xl font-black text-[#1B4D3E] tracking-tight">Oversight</h2>
                     <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest leading-none mt-1">National Coordination Hub</p>
                 </div>
-                <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm max-w-full">
+                <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm max-w-full overflow-x-auto no-scrollbar">
                     {[
                         { id: 'overview', label: 'Dash', icon: <LayoutDashboard size={10}/> },
                         { id: 'users', label: 'Nodes', icon: <Users size={10}/> },
                         { id: 'catalogue', label: 'Master', icon: <Box size={10}/> },
-                        { id: 'permissions', label: 'Matrix', icon: <LockKeyhole size={10}/> }
+                        { id: 'permissions', label: 'Matrix', icon: <LockKeyhole size={10}/> },
+                        { id: 'dropdowns', label: 'Dropdowns', icon: <ListFilter size={10}/> }
                     ].map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab.id ? 'bg-[#1B4D3E] text-white' : 'text-slate-400'}`}>{tab.icon} {tab.label}</button>
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab.id ? 'bg-[#1B4D3E] text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50'}`}>{tab.icon} {tab.label}</button>
                     ))}
                 </div>
             </div>
@@ -476,6 +591,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                 {activeTab === 'users' && renderRegistry()}
                 {activeTab === 'catalogue' && renderCatalogue()}
                 {activeTab === 'permissions' && renderPermissions()}
+                {activeTab === 'dropdowns' && renderDropdowns()}
             </div>
 
             {/* Manual Add Catalogue Modal */}
