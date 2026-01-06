@@ -38,6 +38,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
         if (window.aistudio?.hasSelectedApiKey) {
             const selected = await window.aistudio.hasSelectedApiKey();
             setHasApiKey(selected);
+        } else {
+            // Assume we are in a demo or standard live site environment
+            setHasApiKey(false);
         }
     };
     checkKey();
@@ -48,6 +51,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
           await window.aistudio.openSelectKey();
           setHasApiKey(true);
           setShowKeyWarning(false);
+          if (pendingUser) {
+              onLogin(pendingUser);
+          }
+      } else {
+          // Fallback for live site outside of AI Studio frame
           if (pendingUser) {
               onLogin(pendingUser);
           }
@@ -87,7 +95,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
             return;
         }
 
-        if ((matchedUser.role === UserRole.Government || matchedUser.role === UserRole.Extension) && !hasApiKey) {
+        // Only show key warning if we are in an environment that supports window.aistudio
+        // OR if the user is a Gov/Extension officer and hasn't selected a key yet.
+        const needsKey = (matchedUser.role === UserRole.Government || matchedUser.role === UserRole.Extension);
+        const canSelectKey = typeof window.aistudio !== 'undefined';
+
+        if (needsKey && !hasApiKey && canSelectKey) {
             setPendingUser(matchedUser);
             setShowKeyWarning(true);
             setIsAuthenticating(false);
@@ -203,11 +216,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
                             <span className="text-[10px] font-black text-emerald-800 uppercase">Farmer</span>
                         </button>
                         <button 
-                            onClick={() => handleQuickLogin('ADMIN')}
+                            onClick={() => handleQuickLogin('EXT')}
                             className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl bg-blue-50 border border-blue-100/50 hover:bg-blue-100 transition-all group"
                         >
-                            <Building2 size={16} className="text-blue-600" />
-                            <span className="text-[10px] font-black text-blue-800 uppercase">Officer</span>
+                            <UserCircle size={16} className="text-blue-600" />
+                            <span className="text-[10px] font-black text-blue-800 uppercase">Extension</span>
                         </button>
                     </div>
 

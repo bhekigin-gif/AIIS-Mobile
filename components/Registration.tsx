@@ -91,9 +91,15 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Derive role from ActorType
+    let role = UserRole.Farmer;
+    if (formData.actorType === ActorType.Extension) role = UserRole.Extension;
+    else if (formData.actorType === ActorType.Gov) role = UserRole.Government;
+
     const newUser: UserProfile = {
         name: `${formData.firstName} ${formData.lastName}`,
-        role: UserRole.Farmer,
+        role: role,
         actorType: formData.actorType as ActorType,
         region: formData.region,
         status: 'Pending Approval',

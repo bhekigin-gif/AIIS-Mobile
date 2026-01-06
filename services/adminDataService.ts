@@ -1,3 +1,4 @@
+
 import { UserProfile, UserRole, ActorType, EntityType, Region, SalesProduct, IndicatorItem, CatalogueItem, ResourceType } from '../types';
 import { db, Table } from './databaseService';
 
@@ -28,6 +29,7 @@ const INITIAL_METADATA = {
 const INITIAL_USERS: UserProfile[] = [
     { id: 'ADMIN', name: 'System Administrator', email: 'admin@moa.gov.sz', role: UserRole.Government, actorType: ActorType.Gov, region: Region.Hhohho, status: 'Active', title: 'Super User', organization: 'Ministry of Agriculture', organizationId: 'MOA-HQ' },
     { id: 'MG', name: 'Mgulukudeni Ginindza', email: 'farmer@gmail.com', role: UserRole.Farmer, actorType: ActorType.Farmer, entityType: EntityType.Person, region: Region.Manzini, tinkhundla: 'Manzini South', status: 'Active', title: 'Primary Producer', contact: '+268 7805 4321', organization: 'Ginindza Green Estate', organizationId: 'GININDZA-001' },
+    { id: 'EXT', name: 'Extension Officer', email: 'extension@moa.gov.sz', role: UserRole.Extension, actorType: ActorType.Extension, region: Region.Lubombo, status: 'Active', title: 'Regional Advisor', organization: 'Ministry of Agriculture', organizationId: 'MOA-LUBOMBO' },
 ];
 
 const INITIAL_CATALOGUE: CatalogueItem[] = [
