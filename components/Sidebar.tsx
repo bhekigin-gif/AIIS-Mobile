@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Menu, LogIn, LogOut, UserCircle, UserPlus, X } from 'lucide-react';
+import { Menu, LogIn, LogOut, UserCircle, UserPlus, X, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 
 interface NavItem {
@@ -21,113 +21,149 @@ interface SidebarProps {
   className?: string;
 }
 
-const LOGO_EXPANDED = "https://www.agrinfosystems.gov.sz/assets/uploads/logo.png";
-const LOGO_COLLAPSED = "https://www.agrinfosystems.gov.sz/assets/uploads/favicon1.png";
+// Updated logos as per user request
+const LOGO_PATH = "AIISlogo.png";
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, isCollapsed, toggleSidebar, user, onLogout, onProfileClick, navItems, className = '' }) => {
-  
-  const handleToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    toggleSidebar();
-  };
-
+const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  isCollapsed, 
+  toggleSidebar, 
+  user, 
+  onLogout, 
+  onProfileClick, 
+  navItems, 
+  className = '' 
+}) => {
   const showRegistryLink = !user || user.role === UserRole.Guest || user.role === UserRole.Extension;
 
   return (
     <aside 
-      className={`${isCollapsed ? 'w-16' : 'w-64'} bg-[#1B4D3E] text-white flex flex-col h-screen fixed left-0 top-0 z-50 transition-all duration-300 shadow-xl overflow-hidden ${className}`}
+      className={`bg-[#1B4D3E] text-white flex flex-col h-full transition-all duration-300 shadow-2xl overflow-hidden z-[160]
+        ${isCollapsed ? 'w-20' : 'w-72'} ${className}`}
     >
-      <div className="p-4 border-b border-[#2C6E58] relative">
-        <div className={`flex flex-col items-center gap-3 transition-all duration-300 ${isCollapsed ? 'py-1' : ''}`}>
-          
-          {/* Toggle Button / Close (mobile) */}
-          <div className={`w-full flex justify-between items-start absolute top-2 ${isCollapsed ? 'left-1/2 -translate-x-1/2' : 'left-2'} z-20`}>
+      {/* Top Header/Branding */}
+      <div className="p-4 sm:p-6 border-b border-[#2C6E58] relative shrink-0">
+        <div className="flex flex-col items-center gap-4 transition-all duration-300">
+          <div className={`w-full flex justify-between items-center ${isCollapsed ? 'flex-col gap-4' : ''}`}>
+             {!isCollapsed && (
+               <div className="flex items-center gap-2">
+                 <Shield size={16} className="text-[#FBBF24]" />
+                 <span className="text-[9px] font-black uppercase tracking-widest text-green-300">National Node</span>
+               </div>
+             )}
              <button 
-                onClick={handleToggle} 
-                className="text-green-200 hover:text-white p-1.5 rounded-lg hover:bg-[#2C6E58]/50 transition-colors"
+                onClick={(e) => { e.stopPropagation(); toggleSidebar(); }} 
+                className="lg:hidden text-green-200 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all"
              >
-                {className.includes('fixed') ? <X size={18}/> : <Menu size={18} />}
+                <X size={22} />
              </button>
           </div>
 
-          {/* Logo Container */}
-          <div className={`bg-white rounded-lg flex items-center justify-center shadow-sm transition-all duration-300 overflow-hidden relative
-            ${isCollapsed ? 'w-10 h-10 mt-8 p-1' : 'w-full h-24 mt-4 p-2'}`}>
-             <img src={isCollapsed ? LOGO_COLLAPSED : LOGO_EXPANDED} alt="AIIS Logo" className="w-full h-full object-contain" />
+          <div className={`bg-white rounded-2xl flex items-center justify-center shadow-inner transition-all duration-500 overflow-hidden relative group
+            ${isCollapsed ? 'w-12 h-12 p-2' : 'w-full h-24 p-4'}`}>
+             <img src={LOGO_PATH} alt="AIIS Logo" className="w-full h-full object-contain transition-transform group-hover:scale-110" />
           </div>
           
           {!isCollapsed && (
-            <div className="text-center pb-1">
-              <h1 className="text-xl font-extrabold tracking-tight text-white leading-tight uppercase">AIIS Mobile</h1>
-              <p className="text-[9px] text-green-300 font-black uppercase tracking-widest">Eswatini Agriculture</p>
+            <div className="text-center w-full animate-fade-in">
+              <h1 className="text-lg font-black tracking-tight text-white uppercase leading-none">AIIS Mobile</h1>
+              <p className="text-[8px] text-green-300 font-bold uppercase tracking-[0.2em] mt-1">Eswatini Agriculture</p>
             </div>
           )}
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-6 overflow-x-hidden no-scrollbar">
-        <ul className="space-y-2 px-2">
+      {/* Main Navigation */}
+      <nav className="flex-1 overflow-y-auto py-6 no-scrollbar">
+        <ul className="space-y-1.5 px-3">
           {navItems.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className="relative">
               <button
                 onClick={(e) => { e.stopPropagation(); setActiveTab(item.id); }}
-                className={`w-full flex items-center gap-3 rounded-xl text-sm font-bold transition-all duration-200 
-                  ${isCollapsed ? 'justify-center px-0 py-2.5' : 'px-4 py-3'}
+                title={isCollapsed ? item.label : undefined}
+                className={`w-full flex items-center gap-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-200 group
+                  ${isCollapsed ? 'justify-center p-3.5' : 'px-4 py-3.5'}
                   ${activeTab === item.id 
-                    ? 'bg-[#FBBF24] text-[#1B4D3E] shadow-lg transform scale-[1.02]' 
-                    : 'text-green-100 hover:bg-[#2C6E58] hover:text-white'
+                    ? 'bg-[#FBBF24] text-[#1B4D3E] shadow-lg' 
+                    : 'text-green-100 hover:bg-white/5 hover:text-white'
                   }`}
               >
-                <span className="flex-shrink-0">{item.icon}</span>
+                <span className={`flex-shrink-0 transition-transform group-active:scale-90 ${activeTab === item.id ? 'scale-110' : ''}`}>
+                    {item.icon}
+                </span>
                 {!isCollapsed && <span className="truncate">{item.label}</span>}
+                
+                {/* Active indicator bar */}
+                {activeTab === item.id && !isCollapsed && (
+                  <div className="ml-auto w-1 h-4 bg-[#1B4D3E] rounded-full opacity-50" />
+                )}
               </button>
             </li>
           ))}
         </ul>
       </nav>
 
-      <div className="bg-[#153e32] border-t border-[#2C6E58] safe-area-bottom">
-        {user ? (
-             <div className={`${isCollapsed ? 'p-2' : 'p-4'}`}>
+      {/* Footer Actions */}
+      <div className="bg-black/10 border-t border-[#2C6E58] shrink-0">
+        <div className={`${isCollapsed ? 'p-3' : 'p-4'}`}>
+          {user ? (
+            <div className="space-y-2">
                 <button 
-                    onClick={(e) => { e.stopPropagation(); onProfileClick(); }}
-                    className={`w-full flex items-center gap-3 mb-3 hover:bg-white/5 p-2 rounded-xl transition-all ${isCollapsed ? 'justify-center' : ''}`}
+                  onClick={onProfileClick} 
+                  title={isCollapsed ? "My Profile" : undefined}
+                  className={`w-full flex items-center gap-3 hover:bg-white/5 p-2 rounded-xl transition-all ${isCollapsed ? 'justify-center' : ''}`}
                 >
-                    <div className="w-8 h-8 rounded-full bg-green-700 flex items-center justify-center text-green-200 flex-shrink-0">
-                        <UserCircle size={20} />
+                    <div className="w-9 h-9 rounded-lg bg-green-700/50 flex items-center justify-center text-green-200 shadow-lg border border-white/10 shrink-0">
+                      <UserCircle size={22} />
                     </div>
-                     {!isCollapsed && (
+                    {!isCollapsed && (
                         <div className="overflow-hidden text-left flex-1">
-                            <p className="text-xs font-bold text-white truncate">{user.name}</p>
-                            <p className="text-[10px] text-green-400 truncate uppercase tracking-widest font-black">{user.actorType || user.role}</p>
+                            <p className="text-[11px] font-black text-white truncate">{user.name}</p>
+                            <p className="text-[8px] text-green-400 truncate uppercase font-bold">{user.actorType || user.role}</p>
                         </div>
                     )}
                 </button>
                 <button 
-                    onClick={(e) => { e.stopPropagation(); onLogout(); }}
-                    className={`w-full flex items-center gap-2 text-red-300 hover:text-red-100 text-[10px] font-black transition-colors border border-red-900/30 rounded-lg p-2 hover:bg-red-900/40
-                    ${isCollapsed ? 'justify-center' : 'px-3'}`}
+                  onClick={onLogout} 
+                  title={isCollapsed ? "Sign Out" : undefined}
+                  className={`w-full flex items-center gap-3 text-red-300 hover:text-red-100 text-[10px] font-black uppercase tracking-widest transition-all p-3 hover:bg-red-900/40 rounded-xl ${isCollapsed ? 'justify-center' : ''}`}
                 >
-                    <LogOut size={14} />
+                    <LogOut size={16} />
                     {!isCollapsed && <span>Sign Out</span>}
                 </button>
-             </div>
-        ) : (
-            <div className={`${isCollapsed ? 'p-2' : 'p-4'}`}>
-                 <button onClick={(e) => { e.stopPropagation(); setActiveTab('login'); }} className={`w-full flex items-center gap-3 bg-[#2C6E58] hover:bg-[#3d8c72] text-white rounded-lg transition-all ${isCollapsed ? 'justify-center p-2' : 'px-4 py-2.5 font-bold text-sm'}`}>
-                    <LogIn size={18} />
-                    {!isCollapsed && <span>Login</span>}
-                </button>
             </div>
-        )}
-        {showRegistryLink && !isCollapsed && (
-          <div className="px-4 pb-4">
-               <button onClick={(e) => { e.stopPropagation(); setActiveTab('registry'); }} className="w-full flex items-center gap-3 text-green-200 hover:text-[#FBBF24] text-[10px] font-black uppercase tracking-widest py-2">
-                  <UserPlus size={16} />
-                  <span>User Registry</span>
-              </button>
-          </div>
-        )}
+          ) : (
+            <button 
+              onClick={() => setActiveTab('login')} 
+              title={isCollapsed ? "Sign In" : undefined}
+              className={`w-full flex items-center gap-3 bg-[#FBBF24] text-[#1B4D3E] rounded-xl hover:bg-yellow-400 transition-all shadow-md font-black text-[10px] uppercase tracking-widest ${isCollapsed ? 'justify-center p-3.5' : 'px-4 py-3'}`}
+            >
+                <LogIn size={18} />
+                {!isCollapsed && <span>Login</span>}
+            </button>
+          )}
+
+          {showRegistryLink && !isCollapsed && (
+             <button 
+              onClick={() => setActiveTab('registry')} 
+              className="w-full flex items-center gap-3 text-green-400 hover:text-[#FBBF24] text-[9px] font-black uppercase tracking-widest py-3 transition-colors mt-2"
+             >
+                <UserPlus size={18} />
+                <span>Stakeholder Registry</span>
+            </button>
+          )}
+        </div>
+
+        {/* Desktop Collapse Toggle */}
+        <div className="hidden lg:block border-t border-white/5">
+           <button 
+            onClick={toggleSidebar}
+            className="w-full py-4 flex items-center justify-center text-green-300 hover:text-white hover:bg-white/5 transition-all"
+           >
+             {isCollapsed ? <ChevronRight size={20} /> : <div className="flex items-center gap-2"><ChevronLeft size={16} /><span className="text-[9px] font-black uppercase tracking-widest">Collapse Menu</span></div>}
+           </button>
+        </div>
       </div>
     </aside>
   );

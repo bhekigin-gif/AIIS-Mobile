@@ -14,7 +14,7 @@ import {
   ClipboardType, Filter, Calculator, UserCheck, Wrench, SearchCode,
   Globe, Sparkles, PackagePlus, Briefcase, Fingerprint, Receipt,
   Tags, ArrowUpRight, BarChart4, ChevronLeft, PieChart,
-  TrendingDown, Scale, MapPinned
+  TrendingDown, Scale, MapPinned, Camera, Upload
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
@@ -31,6 +31,7 @@ import {
 import { db, Table } from '../services/databaseService';
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyDFuDLViwxFLH0iO-zFgbJkks20w_DiiJU";
+const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
 
 interface ResourceLog {
     id: string;
@@ -157,6 +158,19 @@ const Production: React.FC<ProductionProps> = ({
       name: '', category: 'Vegetables', quantity: 0, unit: 'kg', price: 0, description: '', image: ''
   });
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'harvest' | 'asset') => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64String = reader.result as string;
+              if (target === 'harvest') setHarvestForm(prev => ({ ...prev, image: base64String }));
+              else if (target === 'asset') setNewAsset(prev => ({ ...prev, image: base64String } as any));
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
   const calculatedVolume = useMemo(() => {
     const areaHa = parseFloat(newUnit.area) || 0;
     const heightM = newUnit.height || 0;
@@ -200,54 +214,25 @@ const Production: React.FC<ProductionProps> = ({
 
                     if (status === 'OK' && results[0]) {
                         address = results[0].formatted_address;
-                        
-                        // Extract closest point of interest
                         const poi = results.find((r: any) => 
-                            r.types.includes('point_of_interest') || 
-                            r.types.includes('establishment') ||
-                            r.types.includes('natural_feature') ||
-                            r.types.includes('park') ||
-                            r.types.includes('school') ||
-                            r.types.includes('church') ||
-                            r.types.includes('store')
+                            r.types.includes('point_of_interest') || r.types.includes('establishment')
                         );
-                        if (poi) {
-                            closestPlace = poi.name || poi.formatted_address.split(',')[0];
-                        }
-
+                        if (poi) closestPlace = poi.name || poi.formatted_address.split(',')[0];
                         results[0].address_components.forEach((c: any) => {
-                            if (c.types.includes('country')) {
-                                country = c.long_name;
-                            }
+                            if (c.types.includes('country')) country = c.long_name;
                             if (c.types.includes('administrative_area_level_1')) {
-                                const rName = c.long_name;
-                                if (rName.includes('Hhohho')) region = Region.Hhohho;
-                                else if (rName.includes('Manzini')) region = Region.Manzini;
-                                else if (rName.includes('Shiselweni')) region = Region.Shiselweni;
-                                else if (rName.includes('Lubombo')) region = Region.Lubombo;
+                                if (c.long_name.includes('Hhohho')) region = Region.Hhohho;
+                                else if (c.long_name.includes('Manzini')) region = Region.Manzini;
+                                else if (c.long_name.includes('Shiselweni')) region = Region.Shiselweni;
+                                else if (c.long_name.includes('Lubombo')) region = Region.Lubombo;
                             }
-                            if (c.types.includes('locality') || c.types.includes('administrative_area_level_2')) {
-                                tinkhundla = c.long_name;
-                            }
+                            if (c.types.includes('locality') || c.types.includes('administrative_area_level_2')) tinkhundla = c.long_name;
                         });
                     }
-                    
-                    // Auto-generate enterprise number linked to user
                     const shortUserId = scopeId.toString().slice(-4).toUpperCase();
                     const timestamp = Date.now().toString().slice(-4);
                     const entNumber = `ENT-${shortUserId}-${timestamp}`;
-
-                    setNewEnterprise({ 
-                        name: '', 
-                        region: region, 
-                        tinkhundla: tinkhundla, 
-                        lat: lat.toFixed(6), 
-                        lng: lng.toFixed(6), 
-                        address: address,
-                        country: country,
-                        closestPlace: closestPlace,
-                        entNumber: entNumber
-                    });
+                    setNewEnterprise({ name: '', region, tinkhundla, lat: lat.toFixed(6), lng: lng.toFixed(6), address, country, closestPlace, entNumber });
                     setIsResolvingGIS(false); setIsPlacingMode(false); setShowEnterpriseModal(true);
                 });
             });
@@ -267,11 +252,9 @@ const Production: React.FC<ProductionProps> = ({
                 setShowUnitModal(true); polygon.setMap(null); 
             });
         }
-
         markersRef.current.forEach(m => m.setMap(null));
         polygonsRef.current.forEach(p => p.setMap(null));
         markersRef.current = []; polygonsRef.current = [];
-
         enterprises.forEach(ent => {
             const isSelected = ent.id === selectedEntId;
             const marker = new (window as any).google.maps.Marker({
@@ -280,7 +263,7 @@ const Production: React.FC<ProductionProps> = ({
                 label: { text: ent.name, color: isSelected ? "#FBBF24" : "#FFFFFF", fontSize: "11px", fontWeight: "900", className: "marker-label-shadow" },
                 icon: { url: isSelected ? 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', scaledSize: new (window as any).google.maps.Size(46, 46), labelOrigin: new (window as any).google.maps.Point(23, -14) }
             });
-            marker.addListener('click', () => { setSelectedEntId(ent.id); setIsTracing(true); if (drawingManager) drawingManager.setDrawingMode((window as any).google.maps.drawing.OverlayType.POLYGON); });
+            marker.addListener('click', () => { setSelectedEntId(ent.id); });
             markersRef.current.push(marker);
             ent.units?.forEach((unit: any) => {
                 const poly = new (window as any).google.maps.Polygon({ paths: unit.path, strokeColor: '#FBBF24', strokeWeight: 4, fillColor: '#1B4D3E', fillOpacity: 0.4, map, zIndex: 1 });
@@ -288,35 +271,18 @@ const Production: React.FC<ProductionProps> = ({
                 polygonsRef.current.push(poly);
             });
         });
-
         if (selectedEnterprise && !isPlacingMode && !isTracing && !showEnterpriseModal && !isLoading) {
             map.panTo(selectedEnterprise.gps); if (map.getZoom() < 16) map.setZoom(17);
         }
     }
   }, [activeTab, googleApiLoaded, selectedEntId, enterprises, mapInstance, isTracing, drawingManager, selectedEnterprise, showEnterpriseModal, isLoading]);
 
-  const handleZoomIn = () => mapInstance?.setZoom(mapInstance.getZoom() + 1);
-  const handleZoomOut = () => mapInstance?.setZoom(mapInstance.getZoom() - 1);
-  const handleFitAll = () => {
-    if (mapInstance && (markersRef.current.length > 0 || polygonsRef.current.length > 0)) {
-        const bounds = new (window as any).google.maps.LatLngBounds();
-        markersRef.current.forEach(m => bounds.extend(m.getPosition()));
-        polygonsRef.current.forEach(p => p.getPath().forEach((pt: any) => bounds.extend(pt)));
-        mapInstance.fitBounds(bounds);
-    }
-  };
-
   const handleAddEnterprise = async () => {
       if (!newEnterprise.name || !newEnterprise.lat) return;
       const entData = {
           ...newEnterprise,
           gps: { lat: parseFloat(newEnterprise.lat), lng: parseFloat(newEnterprise.lng) },
-          ownerId: scopeId, 
-          units: editingEntId ? selectedEnterprise?.units : [], 
-          resources: editingEntId ? selectedEnterprise?.resources : [], 
-          processes: editingEntId ? selectedEnterprise?.processes : [], 
-          operations: editingEntId ? selectedEnterprise?.operations : [], 
-          usageLogs: editingEntId ? selectedEnterprise?.usageLogs : []
+          ownerId: scopeId, units: editingEntId ? selectedEnterprise?.units : [], resources: editingEntId ? selectedEnterprise?.resources : [], processes: editingEntId ? selectedEnterprise?.processes : [], operations: editingEntId ? selectedEnterprise?.operations : [], usageLogs: editingEntId ? selectedEnterprise?.usageLogs : []
       };
       let finalId = editingEntId;
       if (editingEntId) await db.update<any>(Table.Enterprises, editingEntId, entData);
@@ -338,15 +304,11 @@ const Production: React.FC<ProductionProps> = ({
       const targetUnitId = activeUnitForResources?.id; const targetEntId = selectedEntId;
       if (!targetEntId || !newAsset.name) return;
       const ent = await db.getById<any>(Table.Enterprises, targetEntId); if (!ent) return;
-      const assetObj = { 
-          ...newAsset, id: `AST-${Date.now()}`, totalUsageHours: 0, quantity: newAsset.quantity || 1, assignedUnitId: targetUnitId || '',
-          unitNumber: newAsset.type === ResourceType.Machinery || newAsset.type === ResourceType.Equipment ? `${newAsset.unitNumber}${newAsset.specificSerial ? ' / ' + newAsset.specificSerial : ''}` : newAsset.unitNumber
-      } as Resource;
+      const assetObj = { ...newAsset, id: `AST-${Date.now()}`, totalUsageHours: 0, quantity: newAsset.quantity || 1, assignedUnitId: targetUnitId || '', unitNumber: newAsset.type === ResourceType.Machinery || newAsset.type === ResourceType.Equipment ? `${newAsset.unitNumber}${newAsset.specificSerial ? ' / ' + newAsset.specificSerial : ''}` : newAsset.unitNumber } as Resource;
       ent.resources = [...(ent.resources || []), assetObj];
       if (targetUnitId) ent.units = ent.units.map((u: any) => u.id === targetUnitId ? { ...u, resources: [...(u.resources || []), assetObj] } : u);
       await db.update<any>(Table.Enterprises, targetEntId, { resources: ent.resources, units: ent.units });
-      setShowAssetModal(false); 
-      setNewAsset({ type: ResourceType.Machinery, name: '', unitCost: 0, category: 'General', status: 'Available', quantity: 1, unitNumber: '', lifespanHours: 5000, specificSerial: '' });
+      setShowAssetModal(false); setNewAsset({ type: ResourceType.Machinery, name: '', unitCost: 0, category: 'General', status: 'Available', quantity: 1, unitNumber: '', lifespanHours: 5000, specificSerial: '' });
       await loadAllData(targetEntId);
   };
 
@@ -360,12 +322,7 @@ const Production: React.FC<ProductionProps> = ({
           if (r.id === resource.id) return { ...r, quantity: r.type === ResourceType.Consumable ? r.quantity - (usageLogEntry.quantityUsed || 0) : r.quantity, totalUsageHours: (r.totalUsageHours || 0) + (usageLogEntry.hoursUsed || 0) };
           return r;
       });
-      if (usageLogEntry.operationId) {
-          ent.operations = ent.operations.map((op: Operation) => {
-              if (op.id === usageLogEntry.operationId) return { ...op, accumulatedCost: (op.accumulatedCost || 0) + cost };
-              return op;
-          });
-      }
+      if (usageLogEntry.operationId) ent.operations = ent.operations.map((op: Operation) => op.id === usageLogEntry.operationId ? { ...op, accumulatedCost: (op.accumulatedCost || 0) + cost } : op);
       ent.usageLogs = [...(ent.usageLogs || []), logObj];
       await db.update<any>(Table.Enterprises, selectedEntId, { resources: ent.resources, usageLogs: ent.usageLogs, operations: ent.operations });
       setShowUsageModal(false); setUsageLogEntry({ resourceId: '', quantityUsed: 0, hoursUsed: 0, notes: '', operationId: '' }); await loadAllData(selectedEntId);
@@ -383,41 +340,15 @@ const Production: React.FC<ProductionProps> = ({
   const handleFinalizeHarvest = async () => {
     if (!selectedEntId || !finishingOp || !harvestForm.name) return;
     const ent = await db.getById<any>(Table.Enterprises, selectedEntId); if (!ent) return;
-
     const refinedId = `SZ-${scopeId.toString().slice(0,4)}-${selectedEntId.slice(-4)}-${finishingOp.id.slice(-4)}`;
     const newProduct: SalesProduct = {
-        id: refinedId,
-        name: harvestForm.name,
-        category: harvestForm.category,
-        price: harvestForm.price,
-        quantity: harvestForm.quantity,
-        unit: harvestForm.unit,
-        description: harvestForm.description,
-        dateListed: new Date().toISOString().split('T', 1)[0],
-        status: 'Active',
-        sellerId: scopeId as string,
-        sellerName: ent.name,
-        region: ent.region,
-        sourceUnit: finishingOp.field,
-        operationId: finishingOp.id,
-        costPrice: finishingOp.accumulatedCost || 0,
-        image: harvestForm.image || PLACE_HOLDER_IMAGE
+        id: refinedId, name: harvestForm.name, category: harvestForm.category, price: harvestForm.price, quantity: harvestForm.quantity, unit: harvestForm.unit, description: harvestForm.description, dateListed: new Date().toISOString().split('T', 1)[0], status: 'Active', sellerId: scopeId as string, sellerName: ent.name, region: ent.region, sourceUnit: finishingOp.field, operationId: finishingOp.id, costPrice: finishingOp.accumulatedCost || 0, image: harvestForm.image || PLACE_HOLDER_IMAGE
     };
-
-    ent.operations = ent.operations.map((op: Operation) => 
-        op.id === finishingOp.id ? { ...op, status: 'Completed', progress: 100, endDateTime: new Date().toISOString(), producedId: refinedId } : op
-    );
-
+    ent.operations = ent.operations.map((op: Operation) => op.id === finishingOp.id ? { ...op, status: 'Completed', progress: 100, endDateTime: new Date().toISOString(), producedId: refinedId } : op);
     await db.update<any>(Table.Enterprises, selectedEntId, { operations: ent.operations });
     await addProductToRegistry(newProduct);
     setProducts(prev => [newProduct, ...prev]);
     setShowHarvestModal(false); setFinishingOp(null); await loadAllData(selectedEntId);
-  };
-
-  const handleDeleteEnterprise = async (eId: string) => {
-    if (!window.confirm("Delete this Hub and all production records?")) return;
-    await db.delete(Table.Enterprises, eId); await loadAllData();
-    if (selectedEntId === eId) setSelectedEntId(null);
   };
 
   const renderInventory = () => (
@@ -490,76 +421,6 @@ const Production: React.FC<ProductionProps> = ({
       </div>
   );
 
-  const renderOperations = () => (
-      <div className="space-y-4 animate-fade-in pb-20">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <div className="lg:col-span-1 space-y-4">
-                  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-                      <h3 className="text-sm font-black text-[#1B4D3E] uppercase tracking-widest">Performance Hub</h3>
-                      <div className="space-y-3">
-                          <div className="p-3.5 bg-emerald-50 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-700"><Gauge size={16}/><span className="text-[9px] font-black uppercase">Efficiency</span></div><span className="text-sm font-black text-emerald-800">92%</span></div>
-                          <div className="p-3.5 bg-indigo-50 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-2 text-indigo-700"><Wallet size={16}/><span className="text-[9px] font-black uppercase">Total Cost</span></div><span className="text-sm font-black text-indigo-800">E {selectedEnterprise?.usageLogs?.reduce((s:number, l:ResourceLog) => s + l.attributedCost, 0).toLocaleString() || 0}</span></div>
-                      </div>
-                      <button onClick={() => setShowOpModal(true)} disabled={!selectedEntId} className="w-full py-4 bg-[#1B4D3E] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:shadow-xl transition-all flex items-center justify-center gap-3"><Zap size={14}/> New Operation</button>
-                  </div>
-              </div>
-              <div className="lg:col-span-3 space-y-3 h-[calc(100vh-320px)] overflow-y-auto no-scrollbar pr-1">
-                  {selectedEnterprise?.operations?.map((op: Operation) => (
-                      <div key={op.id} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
-                          <div className="p-3 bg-slate-50 rounded-xl text-slate-400"><ClipboardList size={22}/></div>
-                          <div className="flex-1 overflow-hidden">
-                              <h4 className="font-black text-slate-800 text-sm truncate">{op.activity}</h4>
-                              <div className="flex items-center gap-3 mt-1">
-                                <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[80px]"><MapPin size={8} className="inline mr-1"/>{op.field}</p>
-                                <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${op.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{op.status}</span>
-                                <span className="text-[8px] font-bold text-indigo-500 uppercase">E {op.accumulatedCost}</span>
-                              </div>
-                          </div>
-                          <div className="w-24 shrink-0 space-y-1">
-                              <div className="flex justify-between text-[8px] font-black uppercase text-slate-300"><span>Progress</span><span>{op.progress}%</span></div>
-                              <div className="h-1 w-full bg-slate-50 rounded-full overflow-hidden"><div className="h-full bg-[#1B4D3E]" style={{width: `${op.progress}%`}}></div></div>
-                          </div>
-                          <button onClick={() => { setUsageLogEntry({...usageLogEntry, operationId: op.id}); setShowUsageModal(true); }} className="p-2 text-slate-300 hover:text-[#1B4D3E] transition-all"><Hammer size={16}/></button>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      </div>
-  );
-
-  const renderReports = () => {
-    if (!selectedEnterprise) return null;
-    const enterpriseProducts = products.filter(p => p.sellerId === scopeId);
-    const totalAccumulatedCost = selectedEnterprise.usageLogs?.reduce((s: number, l: ResourceLog) => s + l.attributedCost, 0) || 0;
-    const totalYield = enterpriseProducts.reduce((s, p) => s + p.quantity, 0);
-    const avgCostPerUnit = totalYield > 0 ? (totalAccumulatedCost / totalYield).toFixed(2) : 0;
-    const resourceCosts = (selectedEnterprise.usageLogs || []).reduce((acc: any, log: ResourceLog) => { acc[log.type] = (acc[log.type] || 0) + log.attributedCost; return acc; }, {});
-    const pieData = Object.entries(resourceCosts).map(([name, value]) => ({ name, value }));
-    const COLORS = ['#1B4D3E', '#FBBF24', '#3B82F6', '#EF4444', '#8B5CF6'];
-
-    return (
-        <div className="space-y-6 animate-fade-in pb-20 h-[calc(100vh-250px)] overflow-y-auto no-scrollbar">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Expenditure</p><h3 className="text-lg font-black text-[#1B4D3E]">E {totalAccumulatedCost.toLocaleString()}</h3></div>
-                <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Yield Qty</p><h3 className="text-lg font-black text-slate-800">{totalYield.toLocaleString()}</h3></div>
-                <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Cost/Unit</p><h3 className="text-lg font-black text-slate-800">E {avgCostPerUnit}</h3></div>
-                <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Efficiency</p><h3 className="text-lg font-black text-slate-800">92.4%</h3></div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm h-[280px] flex flex-col">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Cost Distribution</h4>
-                    <div className="flex-1"><ResponsiveContainer width="100%" height="100%"><RePieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">{pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><RechartsTooltip contentStyle={{borderRadius:'12px', fontSize:'10px'}}/></RePieChart></ResponsiveContainer></div>
-                </div>
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm h-[280px] flex flex-col">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Node Comparison</h4>
-                    <div className="flex-1 overflow-y-auto no-scrollbar"><div className="space-y-2">{enterpriseProducts.map(p => (<div key={p.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl"><span className="text-[10px] font-black text-slate-600 truncate max-w-[150px]">{p.name}</span><span className="text-[10px] font-black text-[#1B4D3E]">E {p.price} / {p.unit}</span></div>))}</div></div>
-                </div>
-            </div>
-        </div>
-    );
-  };
-
   return (
     <div className="space-y-4 animate-fade-in h-full overflow-hidden flex flex-col">
         <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden shrink-0">
@@ -605,69 +466,108 @@ const Production: React.FC<ProductionProps> = ({
             )}
 
             {activeTab === 'INVENTORY' && renderInventory()}
-            {activeTab === 'OPERATIONS' && renderOperations()}
-            {activeTab === 'REPORTS' && renderReports()}
+            {activeTab === 'OPERATIONS' && (
+              <div className="space-y-4 animate-fade-in pb-20">
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                      <div className="lg:col-span-1 space-y-4">
+                          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                              <h3 className="text-sm font-black text-[#1B4D3E] uppercase tracking-widest">Performance Hub</h3>
+                              <div className="space-y-3">
+                                  <div className="p-3.5 bg-emerald-50 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-700"><Gauge size={16}/><span className="text-[9px] font-black uppercase">Efficiency</span></div><span className="text-sm font-black text-emerald-800">92%</span></div>
+                                  <div className="p-3.5 bg-indigo-50 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-2 text-indigo-700"><Wallet size={16}/><span className="text-[9px] font-black uppercase">Total Cost</span></div><span className="text-sm font-black text-indigo-800">E {selectedEnterprise?.usageLogs?.reduce((s:number, l:ResourceLog) => s + l.attributedCost, 0).toLocaleString() || 0}</span></div>
+                              </div>
+                              <button onClick={() => setShowOpModal(true)} disabled={!selectedEntId} className="w-full py-4 bg-[#1B4D3E] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:shadow-xl transition-all flex items-center justify-center gap-3"><Zap size={14}/> New Operation</button>
+                          </div>
+                      </div>
+                      <div className="lg:col-span-3 space-y-3 h-[calc(100vh-320px)] overflow-y-auto no-scrollbar pr-1">
+                          {selectedEnterprise?.operations?.map((op: Operation) => (
+                              <div key={op.id} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center gap-4">
+                                  <div className="p-3 bg-slate-50 rounded-xl text-slate-400"><ClipboardList size={22}/></div>
+                                  <div className="flex-1 overflow-hidden">
+                                      <h4 className="font-black text-slate-800 text-sm truncate">{op.activity}</h4>
+                                      <div className="flex items-center gap-3 mt-1">
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[80px]"><MapPin size={8} className="inline mr-1"/>{op.field}</p>
+                                        <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${op.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{op.status}</span>
+                                        <span className="text-[8px] font-bold text-indigo-500 uppercase">E {op.accumulatedCost}</span>
+                                      </div>
+                                  </div>
+                                  <div className="w-24 shrink-0 space-y-1">
+                                      <div className="flex justify-between text-[8px] font-black uppercase text-slate-300"><span>Progress</span><span>{op.progress}%</span></div>
+                                      <div className="h-1 w-full bg-slate-50 rounded-full overflow-hidden"><div className="h-full bg-[#1B4D3E]" style={{width: `${op.progress}%`}}></div></div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button onClick={() => { setUsageLogEntry({...usageLogEntry, operationId: op.id}); setShowUsageModal(true); }} className="p-2 text-slate-300 hover:text-[#1B4D3E] transition-all"><Hammer size={16}/></button>
+                                    {op.type === 'Harvest' && op.status !== 'Completed' && (
+                                      <button onClick={() => { setFinishingOp(op); setHarvestForm(prev => ({ ...prev, name: op.activity })); setShowHarvestModal(true); }} className="p-2 text-emerald-500 hover:text-emerald-700 transition-all"><Sprout size={16}/></button>
+                                    )}
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              </div>
+            )}
+            {activeTab === 'REPORTS' && (
+              <div className="space-y-6 animate-fade-in pb-20 h-[calc(100vh-250px)] overflow-y-auto no-scrollbar">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Expenditure</p><h3 className="text-lg font-black text-[#1B4D3E]">E {(selectedEnterprise?.usageLogs?.reduce((s: number, l: ResourceLog) => s + l.attributedCost, 0) || 0).toLocaleString()}</h3></div>
+                      <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Yield Qty</p><h3 className="text-lg font-black text-slate-800">{products.filter(p => p.sellerId === scopeId).reduce((s, p) => s + p.quantity, 0).toLocaleString()}</h3></div>
+                      <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm"><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Efficiency</p><h3 className="text-lg font-black text-slate-800">92.4%</h3></div>
+                  </div>
+              </div>
+            )}
         </div>
 
-        {/* Enterprise Modal: Auto-populated with GIS details */}
-        {showEnterpriseModal && (
-            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
-                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
+        {/* Harvest Modal with Image Upload */}
+        {showHarvestModal && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
                     <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Building2 size={24} className="text-[#FBBF24]"/></div>
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Sprout size={24} className="text-[#FBBF24]"/></div>
                             <div>
-                                <h3 className="text-xl font-black uppercase tracking-tight">{editingEntId ? 'Update Hub' : 'New Sourcing Node'}</h3>
-                                <p className="text-[10px] text-green-300 font-black uppercase tracking-widest mt-1">Institutional GIS Registry</p>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Finalize Commodity Node</h3>
+                                <p className="text-[10px] text-green-300 font-black uppercase tracking-widest mt-1">Institutional Harvest Registry</p>
                             </div>
                         </div>
-                        <button onClick={() => setShowEnterpriseModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24}/></button>
+                        <button onClick={() => setShowHarvestModal(false)}><X size={24}/></button>
                     </div>
                     <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[70vh]">
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trade Hub Name</label>
-                            <input value={newEnterprise.name} onChange={(e)=>setNewEnterprise({...newEnterprise, name: e.target.value})} placeholder="e.g. Mahlanya Hub..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-[#1B4D3E]/5" />
-                        </div>
-
-                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
-                            <div className="flex items-center gap-3 mb-2">
-                                <MapPinned size={18} className="text-indigo-600" />
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Auto-Resolved Location</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trade Name</label><input value={harvestForm.name} onChange={(e)=>setHarvestForm({...harvestForm, name: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Quantity</label><input type="number" value={harvestForm.quantity} onChange={(e)=>setHarvestForm({...harvestForm, quantity: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Value (E)</label><input type="number" value={harvestForm.price} onChange={(e)=>setHarvestForm({...harvestForm, price: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                                </div>
+                                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Detailed Description</label><textarea value={harvestForm.description} onChange={(e)=>setHarvestForm({...harvestForm, description: e.target.value})} className="w-full h-24 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none resize-none" /></div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <p className="text-[8px] font-black text-slate-300 uppercase">Country</p>
-                                    <p className="text-[11px] font-black text-slate-700">{newEnterprise.country}</p>
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Commodity Batch Photo</label>
+                                <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group">
+                                    {harvestForm.image ? (
+                                        <>
+                                            <img src={harvestForm.image} className="w-full h-full object-cover" />
+                                            <button onClick={() => setHarvestForm(prev => ({ ...prev, image: '' }))} className="absolute top-4 right-4 p-2 bg-rose-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={16}/></button>
+                                        </>
+                                    ) : (
+                                        <div className="text-center p-6">
+                                            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-sm mb-4"><Camera size={24} className="text-slate-300"/></div>
+                                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Capture Node Output</p>
+                                            <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleImageUpload(e, 'harvest')} />
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-[8px] font-black text-slate-300 uppercase">Node Number</p>
-                                    <p className="text-[11px] font-black text-indigo-600 font-mono">{newEnterprise.entNumber}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[8px] font-black text-slate-300 uppercase">Region</p>
-                                    <p className="text-[11px] font-black text-slate-700">{newEnterprise.region}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-[8px] font-black text-slate-300 uppercase">Inkhundla</p>
-                                    <p className="text-[11px] font-black text-slate-700">{newEnterprise.tinkhundla || 'Establishing...'}</p>
+                                <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex gap-3">
+                                    <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
+                                    <p className="text-[10px] text-emerald-700 font-medium leading-relaxed">Persistent visual record ensures transparency in the national procurement chain.</p>
                                 </div>
                             </div>
-                            {newEnterprise.closestPlace && (
-                                <div className="pt-2 border-t border-slate-200">
-                                    <p className="text-[8px] font-black text-slate-300 uppercase">Proximal Landmark</p>
-                                    <p className="text-[11px] font-black text-emerald-700">{newEnterprise.closestPlace}</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Refined Address</label>
-                            <input value={newEnterprise.address} onChange={(e)=>setNewEnterprise({...newEnterprise, address: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-xs outline-none text-slate-500" />
                         </div>
                     </div>
                     <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
-                        <button onClick={handleAddEnterprise} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
-                            <Save size={18}/> Commit to Registry
+                        <button onClick={handleFinalizeHarvest} className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
+                            <Save size={18}/> Commit to Trade Hub
                         </button>
                     </div>
                 </div>
@@ -698,6 +598,69 @@ const Production: React.FC<ProductionProps> = ({
             </div>
         )}
 
+        {/* Enterprise Modal: Auto-populated with GIS details */}
+        {showEnterpriseModal && (
+            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
+                    <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Building2 size={24} className="text-[#FBBF24]"/></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">{editingEntId ? 'Update Hub' : 'New Sourcing Node'}</h3>
+                                <p className="text-[10px] text-green-300 font-black uppercase tracking-widest mt-1">Institutional GIS Registry</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowEnterpriseModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24}/></button>
+                    </div>
+                    <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[70vh]">
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trade Hub Name</label>
+                            <input value={newEnterprise.name} onChange={(e)=>setNewEnterprise({...newEnterprise, name: e.target.value})} placeholder="e.g. Mahlanya Hub..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-[#1B4D3E]/5" />
+                        </div>
+                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <MapPinned size={18} className="text-indigo-600" />
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Auto-Resolved Location</h4>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <p className="text-[8px] font-black text-slate-300 uppercase">Country</p>
+                                    <p className="text-[11px] font-black text-slate-700">{newEnterprise.country}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[8px] font-black text-slate-300 uppercase">Node Number</p>
+                                    <p className="text-[11px] font-black text-indigo-600 font-mono">{newEnterprise.entNumber}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[8px] font-black text-slate-300 uppercase">Region</p>
+                                    <p className="text-[11px] font-black text-slate-700">{newEnterprise.region}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[8px] font-black text-slate-300 uppercase">Inkhundla</p>
+                                    <p className="text-[11px] font-black text-slate-700">{newEnterprise.tinkhundla || 'Establishing...'}</p>
+                                </div>
+                            </div>
+                            {newEnterprise.closestPlace && (
+                                <div className="pt-2 border-t border-slate-200">
+                                    <p className="text-[8px] font-black text-slate-300 uppercase">Proximal Landmark</p>
+                                    <p className="text-[11px] font-black text-emerald-700">{newEnterprise.closestPlace}</p>
+                                </div>
+                            )}
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Refined Address</label>
+                            <input value={newEnterprise.address} onChange={(e)=>setNewEnterprise({...newEnterprise, address: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-xs outline-none text-slate-500" />
+                        </div>
+                    </div>
+                    <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
+                        <button onClick={handleAddEnterprise} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
+                            <Save size={18}/> Commit to Registry
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <style>{`
             .marker-label-shadow { text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5); padding: 4px 8px; background: rgba(27, 77, 62, 0.4); border-radius: 4px; }
             .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -706,7 +669,5 @@ const Production: React.FC<ProductionProps> = ({
     </div>
   );
 };
-
-const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
 
 export default Production;

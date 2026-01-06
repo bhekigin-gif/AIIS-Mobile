@@ -31,6 +31,7 @@ interface PersonaWorkflow {
     icon: React.ReactNode;
     color: string;
     linkage: string;
+    narrative: string;
     steps: {title: string, tool: string, description: string}[];
 }
 
@@ -43,7 +44,6 @@ const CapacityBuilding: React.FC = () => {
   const [filterFileType, setFilterFileType] = useState('');
   const [newFile, setNewFile] = useState<File | null>(null);
 
-  // System Metadata State
   const [systemMetadata, setSystemMetadata] = useState<any>(null);
   const [documentCategories, setDocumentCategories] = useState<any[]>([]);
 
@@ -69,210 +69,59 @@ const CapacityBuilding: React.FC = () => {
   const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [generatedStory, setGeneratedStory] = useState<string | null>(null);
 
-  // SEQUENCE: Supervisor -> Extension -> Supplier -> Farmer -> Processor -> Transporter -> Buyer -> Retailer -> Restaurant -> Consumer -> Waste Manager -> Agro Trader
   const personaWorkflows: PersonaWorkflow[] = [
       {
-          id: 'w1',
-          role: 'Supervisor / Monitor',
-          actor: ActorType.Gov,
-          personaName: 'Sibongile Dlamini',
-          title: 'National Surveillance',
-          objective: 'Ensure national grain reserves meet food security targets for the Hhohho region.',
-          description: 'Ministry oversight using data to adjust national agricultural policy and trade permits.',
-          icon: <ShieldCheck className="text-slate-600" />,
-          color: 'slate',
-          linkage: 'Regulator for all nodes; dependent on data from the entire registry.',
-          steps: [
-              { title: 'KPI Analysis', tool: 'National Dashboard', description: 'Monitors the "Aggregated Production" charts to compare current yields against national targets.' },
-              { title: 'Registry Vetting', tool: 'Admin: Registry', description: 'Reviews and approves institutional and individual actor registrations for legal compliance.' },
-              { title: 'Provenance Audit', tool: 'Traceability Portal', description: 'Inputs refined chronology IDs into the search to verify if sales match regional production logs.' }
-          ]
-      },
-      {
-          id: 'w2',
-          role: 'Extension / Partner',
-          actor: ActorType.Extension,
-          personaName: 'Ethan Khumalo',
-          title: 'Regional Advisory',
-          objective: 'Onboard 50 smallholders in Siphofaneni into the digital commercial ecosystem.',
-          description: 'Providing on-the-ground support and advisory services to primary producers.',
-          icon: <UserCheck className="text-violet-600" />,
-          color: 'violet',
-          linkage: 'Key intermediary between Government Policy and Farmer implementation.',
-          steps: [
-              { title: 'GIS Verification', tool: 'Production GIS', description: 'Visits farm plots to inspect and verify farmer-traced field boundaries for official status.' },
-              { title: 'Resource Sync', tool: 'Knowledge Library', description: 'Downloads Gross Margin templates to distribute as technical guides to cooperatives.' },
-              { title: 'Diagnosis Assist', tool: 'AI Expert Advisor', description: 'Analyzes crop photos from the field to provide instant pest and disease identifications.' }
-          ]
-      },
-      {
-          id: 'w3',
-          role: 'Input Supplier',
-          actor: ActorType.Supplier,
-          personaName: 'Sipho Mamba',
-          title: 'Catalogue Provisioning',
-          objective: 'Distribute certified hybrid seeds to the Shiselweni region for the upcoming season.',
-          description: 'Registering essential farming inputs in the master registry to support regional production.',
-          icon: <Package className="text-amber-600" />,
-          color: 'amber',
-          linkage: 'Primary feeder node for Farmers; regulated by Ministry Supervisors.',
-          steps: [
-              { title: 'Catalogue Entry', tool: 'Admin: Master Catalogue', description: 'Registers seeds and fertilizers with full ISO standards and technical datasheets.' },
-              { title: 'Demand Analysis', tool: 'National Dashboard', description: 'Monitors regional production cycles to forecast which areas require higher input stock.' },
-              { title: 'Tech Support', tool: 'AI Expert Advisor', description: 'Inputs product specs into the AI knowledge base to help farmers with application queries.' }
-          ]
-      },
-      {
-          id: 'w4',
-          role: 'Farmer / Producer',
+          id: 'farmer_story',
+          role: 'Primary Producer',
           actor: ActorType.Farmer,
-          personaName: 'Thandiwe Shongwe',
-          title: 'Primary Trade Generation',
-          objective: 'Harvest and list 10 Tons of Grade A Maize for institutional procurement.',
-          description: 'Managing production lifecycles to generate high-value, traceable harvest batches.',
+          personaName: 'Musa Dlamini',
+          title: 'The Traceable Harvest',
+          objective: 'List 5 Tons of Grade A Cabbages on the Trade Hub with full provenance.',
+          description: 'A typical journey from farm mapping to digital sale.',
           icon: <Tractor className="text-emerald-600" />,
           color: 'emerald',
-          linkage: 'Relies on Suppliers for seeds and AFROGEO for seasonal harvest labor.',
+          linkage: 'Relies on Suppliers for seeds and Extension for plot verification.',
+          narrative: "Musa starts by using the Production GIS to trace his 2-hectare field. He registers this as an 'Inception Node'. Throughout the season, he logs spray cycles and fertilizer usage. Upon harvest, the system generates a 'Refined Chronology ID' (SZ-XXXX-...). When a supermarket buyer scans this ID in the Marketplace, they see Musa's entire cycle, proving his cabbages are safe and local.",
           steps: [
-              { title: 'Unit Setup', tool: 'Production GIS', description: 'Traces her field boundaries on the map, generating a unique non-PII unit hash (U-XXXX).' },
-              { title: 'Cycle Logging', tool: 'Production: Ops Logging', description: 'Logs every spray task to a Production Cycle (PRC), building a verifiable cost-of-production record.' },
-              { title: 'Hub Publishing', tool: 'Marketplace: My Shop', description: 'Harvests produce, generating a refined chronology ID (SZ-XXXX-...) that ends the Production Cycle.' }
+              { title: 'GIS Mapping', tool: 'Production GIS', description: 'Traces field boundaries to generate a unique digital unit hash.' },
+              { title: 'Ops Logging', tool: 'Ops Manager', description: 'Logs every input used, automatically calculating the cost of production.' },
+              { title: 'Market Listing', tool: 'Trade Hub', description: 'Harvests the batch, ending the production node and starting the trade node.' }
           ]
       },
       {
-          id: 'w5',
-          role: 'Agro-Processor',
-          actor: ActorType.Processor,
-          personaName: 'Phindile Fakudze',
-          title: 'Value-Addition Lineage',
-          objective: 'Produce 5,000 units of peanut butter with full farm-to-shelf provenance.',
-          description: 'Transforming raw materials into retail goods while maintaining the digital thread.',
-          icon: <Factory className="text-indigo-600" />,
+          id: 'gov_story',
+          role: 'Ministry Supervisor',
+          actor: ActorType.Gov,
+          personaName: 'Dr. Thandi Fakudze',
+          title: 'National Oversight',
+          objective: 'Monitor national fertilizer stock and approve new Input Suppliers.',
+          description: 'Ensuring institutional compliance and food security.',
+          icon: <ShieldCheck className="text-indigo-600" />,
           color: 'indigo',
-          linkage: 'Depends on verified Farmers for raw supply and Transporters for bulk logistics.',
+          narrative: "Dr. Fakudze logs into the Oversight module to review pending registrations. She finds a new fertilizer company and verifies their ISO certifications against the Master Catalogue standards. She approves them, and their products are instantly available to Musa and other farmers. She then checks the National Dashboard to see if the Shiselweni region has enough maize reserves for the winter.",
+          linkage: 'Regulator for all nodes; dependent on data integrity from the field.',
           steps: [
-              { title: 'Raw Sourcing', tool: 'Marketplace Hub', description: 'Procures bulk nuts from verified farmers by validating their Harvest IDs (HRV-XXXX).' },
-              { title: 'Process Link', tool: 'Production: Lifecycle', description: 'Starts a Processing Cycle (VAP), linking raw batch costs to the new value-added chronology.' },
-              { title: 'Retail Distro', tool: 'Marketplace: Listings', description: 'Publishes finished jars with an app-generated Finished ID (FIN-XXXX) for market transparency.' }
+              { title: 'Registry Vetting', tool: 'Admin: Nodes', description: 'Reviews and activates institutional personas based on legal documents.' },
+              { title: 'Catalogue Control', tool: 'Master Catalogue', description: 'Updates global input parameters and verifies manufacturer URLs.' },
+              { title: 'KPI Surveillance', tool: 'National Dashboard', description: 'Analyzes yield trends to forecast national food supply needs.' }
           ]
       },
       {
-          id: 'w6',
-          role: 'Logistics / Transporter',
-          actor: ActorType.Transporter,
-          personaName: 'Musa Simelane',
-          title: 'Secure Asset Movement',
-          objective: 'Transport 100 crates of tomatoes from Ezulwini to Manzini supermarkets safely.',
-          description: 'Ensuring the safe movement of agricultural goods across the value chain.',
-          icon: <Truck className="text-cyan-600" />,
-          color: 'cyan',
-          linkage: 'Essential service provider linking Farmers and Processors to Buyers.',
-          steps: [
-              { title: 'Route Transit', tool: 'Production: Logistics', description: 'Scans the refined chronology IDs at pickup to initiate the transit cycle on the map.' },
-              { title: 'Compliance Check', tool: 'Admin: Registry', description: 'Uploads vehicle safety and health certificates for Ministry certification.' },
-              { title: 'Proof of Delivery', tool: 'Marketplace: Orders', description: 'Signs off the delivery digitally at the buyer depot, releasing escrow payments.' }
-          ]
-      },
-      {
-          id: 'w7',
-          role: 'Market / Buyer',
-          actor: ActorType.Buyer,
-          personaName: 'Bongani Masuku',
-          title: 'Institutional Sourcing',
-          objective: 'Procure 500 Tons of Maize for a national supermarket chain within budget.',
-          description: 'Sourcing reliable, safe commodities for supermarkets or national reserves.',
-          icon: <ShoppingCart className="text-rose-600" />,
-          color: 'rose',
-          linkage: 'Primary liquidity provider; dependent on verified food safety standards.',
-          steps: [
-              { title: 'Availability Search', tool: 'Marketplace Hub', description: 'Queries national stocks for bulk availability within specific regional radii.' },
-              { title: 'Safety Audit', tool: 'Traceability Portal', description: 'Decodes chronology IDs (SZ-...) to verify whether items are field-harvested or processed.' },
-              { title: 'Contracting', tool: 'Marketplace: Orders', description: 'Issues Purchase Orders directly to verified cooperatives through the system.' }
-          ]
-      },
-      {
-          id: 'w8',
-          role: 'Produce Retailer',
-          actor: ActorType.Retailer,
-          personaName: 'Zanele Gamedze',
-          title: 'Shelf Safety Management',
-          objective: 'Maintain a 100% "Certified Fresh" rating for her produce department.',
-          description: 'Managing fresh produce stock with digital tools to ensure quality and safety.',
-          icon: <Store className="text-blue-600" />,
+          id: 'ext_story',
+          role: 'Extension Officer',
+          actor: ActorType.Extension,
+          personaName: 'Ethan Khumalo',
+          title: 'Field Technical Advisor',
+          objective: 'Diagnose a suspected armyworm outbreak in the Lubombo region.',
+          description: 'Providing technical bridges between policy and the soil.',
+          icon: <UserCheck className="text-blue-600" />,
           color: 'blue',
-          linkage: 'Frontline to Consumer; sources from Processors and Aggregators.',
+          narrative: "Ethan is visiting smallholders in Siphofaneni. A farmer shows him a leaf with strange holes. Ethan uses the AI Expert Advisor to take a photo. The AIIS pathology node identifies the pest as Fall Armyworm and suggests specific remediation steps from the Master Catalogue. Ethan records the outbreak location on the map, instantly alerting the Ministry Supervisor.",
+          linkage: 'Direct link between National Policy and Farmer implementation.',
           steps: [
-              { title: 'Inventory Sync', tool: 'Dashboard: My Shop', description: 'Tracks incoming batches and logs cold storage conditions for shelf-life assurance.' },
-              { title: 'Expiry Monitoring', tool: 'Dashboard: Alerts', description: 'Uses operational alerts to rotate stock based on original chronology timestamps.' },
-              { title: 'Fresh Insights', tool: 'AI Expert Advisor', description: 'Queries for optimal storage temperatures to reduce post-harvest leafy green loss.' }
-          ]
-      },
-      {
-          id: 'w9',
-          role: 'Restaurant / Caterer',
-          actor: ActorType.Restaurant,
-          personaName: 'Chef Lindiwe',
-          title: 'Traceable Sourcing',
-          objective: 'Source unique "Nguni Beef" and organic kale for a weekend gourmet event.',
-          description: 'Providing farm-to-table experiences by sourcing verified local ingredients.',
-          icon: <Utensils className="text-orange-600" />,
-          color: 'orange',
-          linkage: 'High-value buyer; reliant on Retailers and Farmers for fresh daily supply.',
-          steps: [
-              { title: 'Niche Sourcing', tool: 'Marketplace Search', description: 'Filters for "Organic" and "Livestock" to find registered Nguni cattle producers.' },
-              { title: 'Menu Verification', tool: 'Marketplace: Trace', description: 'Generates a customer-facing QR code for menus that links to the verified source unit.' },
-              { title: 'Waste Logging', tool: 'Production: Ops Logging', description: 'Logs organic waste output to be picked up by verified Waste Managers.' }
-          ]
-      },
-      {
-          id: 'w10',
-          role: 'Consumer',
-          actor: ActorType.Consumer,
-          personaName: 'Nomvula Vilakati',
-          title: 'Food Safety Intelligence',
-          objective: 'Purchase the healthiest, safest vegetables for her family using national data.',
-          description: 'Empowered to make informed decisions through national transparency.',
-          icon: <ShoppingBag className="text-pink-600" />,
-          color: 'pink',
-          linkage: 'The final destination; rewards honest producers with informed purchases.',
-          steps: [
-              { title: 'Scan Verification', tool: 'Marketplace: Scan', description: 'Scans cabbage packs to view the originating unit and cycle type (Production vs Processed).' },
-              { title: 'Nutrition Support', tool: 'AI Expert Advisor', description: 'Asks for nutritional profiles or recipes based on specific local produce.' },
-              { title: 'Price Monitoring', tool: 'Dashboard: Public View', description: 'Checks regional price trends to find the best value for seasonal fruits.' }
-          ]
-      },
-      {
-          id: 'w11',
-          role: 'Waste Manager',
-          actor: ActorType.WasteManager,
-          personaName: 'Mandla Ngwenya',
-          title: 'Circular Trade Ops',
-          objective: 'Collect 10 Tons of organic waste to produce high-grade compost for resale.',
-          description: 'Managing agricultural waste to create sustainable organic inputs.',
-          icon: <Recycle className="text-stone-600" />,
-          color: 'stone',
-          linkage: 'Closes the loop between Retailers/Restaurants and primary Farmers.',
-          steps: [
-              { title: 'Route Optimizer', tool: 'Production GIS', description: 'Views the locations of units that have logged available waste for collection.' },
-              { title: 'Transformation Log', tool: 'Production: Ops Logging', description: 'Records composting cycles (temp/duration) to certify organic fertilizer.' },
-              { title: 'Input Listing', tool: 'Marketplace: My Shop', description: 'Publishes finished compost batches back to the hub with new chronology IDs.' }
-          ]
-      },
-      {
-          id: 'w12',
-          role: 'Agro Trader',
-          actor: ActorType.AgroTrader,
-          personaName: 'AFROGEO Hub',
-          title: 'Value Chain Integration',
-          objective: 'Coordinate a 1,000 Ton Sugar export contract by providing labor and trade linkages.',
-          description: 'Essential service providing Information, Labor (Skilled/Unskilled), and Trade Linkages to all nodes.',
-          icon: <Briefcase className="text-teal-600" />,
-          color: 'teal',
-          linkage: 'The central nervous system linking all 12 nodes through the AIIS system.',
-          steps: [
-              { title: 'Labor Provisioning', tool: 'Production: Unit Linkage', description: 'Assigns specialized harvest crews to farmers via the system linkage tool.' },
-              { title: 'Trade Linkage', tool: 'Marketplace Hub', description: 'Aggregates multiple smallholder harvests into one master trade lot for export.' },
-              { title: 'Market Intel', tool: 'AI Expert Advisor', description: 'Synthesizes pricing and demand data across all nodes for Ministry reports.' }
+              { title: 'GIS Audit', tool: 'Production GIS', description: 'Verifies farmer-traced boundaries to ensure national data accuracy.' },
+              { title: 'AI Diagnosis', tool: 'AIIS Expert', description: 'Uses computer vision to identify pathogens and recommend treatments.' },
+              { title: 'Library Access', tool: 'Knowledge Bank', description: 'Downloads regional Gross Margin guides to help farmers plan budgets.' }
           ]
       }
   ];
@@ -334,7 +183,7 @@ const CapacityBuilding: React.FC = () => {
 
   const handleApplyPresetWorkflow = (workflow: PersonaWorkflow) => {
       setStoryRole(workflow.actor);
-      setStoryGoal(`I am ${workflow.personaName}, a ${workflow.role} using the AIIS platform to achieve ${workflow.title}. Explain my technical journey through the app tools: ${workflow.steps.map(s => s.tool).join(', ')}. Detail how I interact with other nodes in the chain.`);
+      setStoryGoal(`Explain the workflow for ${workflow.personaName} as a ${workflow.role}. Their goal is to ${workflow.objective}. Describe how they interact with ${workflow.steps.map(s => s.tool).join(', ')}.`);
       setGeneratedStory(null);
       document.getElementById('ai-narrative')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -350,23 +199,14 @@ const CapacityBuilding: React.FC = () => {
         setDocuments(prev => [newDoc, ...prev]);
         setShowUploadModal(false);
         setNewFile(null);
-        alert(`Successfully uploaded knowledge resource: ${newFile.name}`);
     }
   };
 
   const colorMap: Record<string, { bg: string, text: string, border: string, dot: string }> = {
       emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100', dot: 'bg-emerald-100' },
       indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-100', dot: 'bg-indigo-100' },
-      rose: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100', dot: 'bg-rose-100' },
-      amber: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-100', dot: 'bg-amber-100' },
       blue: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-100', dot: 'bg-blue-100' },
-      orange: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-100', dot: 'bg-orange-100' },
-      pink: { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-100', dot: 'bg-pink-100' },
-      stone: { bg: 'bg-stone-50', text: 'text-stone-700', border: 'border-stone-100', dot: 'bg-stone-100' },
-      cyan: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-100', dot: 'bg-cyan-100' },
       slate: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-100', dot: 'bg-slate-100' },
-      violet: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-100', dot: 'bg-violet-100' },
-      teal: { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-100', dot: 'bg-teal-100' },
   };
 
   if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
@@ -377,7 +217,6 @@ const CapacityBuilding: React.FC = () => {
               <h3 className="text-xl font-black text-[#1B4D3E] flex items-center gap-2 uppercase tracking-tight">
                   <ShieldCheck size={28} className="text-emerald-600"/> Institutional Access Matrix
               </h3>
-              <p className="text-sm text-slate-500 mt-1 font-medium">Standardized permissions for national agricultural coordination.</p>
           </div>
           <div className="overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
@@ -411,9 +250,9 @@ const CapacityBuilding: React.FC = () => {
   const renderUserStories = () => (
       <div className="space-y-12 animate-fade-in max-w-6xl mx-auto pb-20">
           <div className="text-center space-y-4 max-w-3xl mx-auto">
-              <h3 className="font-black text-4xl text-slate-800 tracking-tight">Value Chain Technical Journeys</h3>
+              <h3 className="font-black text-4xl text-slate-800 tracking-tight">Institutional Workflows</h3>
               <p className="text-slate-500 font-medium text-lg leading-relaxed">
-                  Discover how personified actors utilize AIIS tools to synchronize the Eswatini value chain. Each story illustrates the interdependent nodes from field to fork.
+                  Select a role to see how AIIS tools synchronize the agricultural value chain.
               </p>
           </div>
           
@@ -435,19 +274,17 @@ const CapacityBuilding: React.FC = () => {
                       
                       <div className="p-8 flex-1 space-y-8">
                           <div className="space-y-3">
-                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Objective</p>
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Digital Objective</p>
                               <p className="text-sm text-slate-600 leading-relaxed font-bold italic border-l-4 border-slate-100 pl-4">"{workflow.objective}"</p>
-                              <div className={`flex items-start gap-2 p-3 rounded-2xl ${colors.bg} border ${colors.border} bg-opacity-40`}>
-                                  {/* Fixed: Use imported 'Link' instead of undefined 'LinkIcon' */}
-                                  <Link size={14} className={`${colors.text} shrink-0 mt-0.5`} />
-                                  <p className="text-[10px] font-bold text-slate-500 leading-tight uppercase tracking-tight">
-                                      <span className={`${colors.text} font-black`}>Node Linkage:</span> {workflow.linkage}
-                                  </p>
-                              </div>
+                          </div>
+
+                          <div className="space-y-3">
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Workflow Summary</p>
+                              <p className="text-xs text-slate-500 leading-relaxed font-medium">{workflow.narrative}</p>
                           </div>
                           
                           <div className="space-y-6">
-                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Digital Steps</p>
+                              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">System Touchpoints</p>
                               {workflow.steps.map((step, i) => (
                                   <div key={i} className="relative flex gap-5 items-start">
                                       <div className={`w-8 h-8 rounded-2xl ${colors.dot} flex-shrink-0 flex items-center justify-center text-xs font-black ${colors.text} z-10 shadow-sm`}>
@@ -473,7 +310,7 @@ const CapacityBuilding: React.FC = () => {
                             onClick={() => handleApplyPresetWorkflow(workflow)}
                             className={`w-full py-4 rounded-2xl bg-white border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest hover:border-${workflow.color}-400 hover:text-${colors.text.split('-')[1]}-700 transition-all flex items-center justify-center gap-3 shadow-sm active:scale-95`}
                           >
-                              Synthesize Narrative <Sparkles size={16} className={`${colors.text}`} />
+                              Expand Technical Story <Sparkles size={16} className={`${colors.text}`} />
                           </button>
                       </div>
                   </div>
@@ -485,15 +322,15 @@ const CapacityBuilding: React.FC = () => {
                   <div className="lg:col-span-2 space-y-8">
                       <div className="space-y-4">
                           <div className="inline-flex p-3 bg-white/10 rounded-2xl border border-white/10"><Wand2 className="text-[#FBBF24]" size={28}/></div>
-                          <h3 className="font-black text-3xl tracking-tight">AI Trade Journey Simulation</h3>
+                          <h3 className="font-black text-3xl tracking-tight">AI Narrative Synthesis</h3>
                           <p className="text-green-100 font-medium leading-relaxed opacity-80">
-                              Gemini will expand the chosen persona's story into a detailed operational simulation, showing how every digital action contributes to the national value chain.
+                              Generate a detailed technical simulation of any agricultural role using national system logic.
                           </p>
                       </div>
                       
                       <div className="space-y-6">
                           <div className="space-y-2">
-                              <label className="text-[10px] font-black text-green-300 uppercase tracking-widest ml-1">Trade Action Context</label>
+                              <label className="text-[10px] font-black text-green-300 uppercase tracking-widest ml-1">Select Persona</label>
                               <select 
                                 value={storyRole}
                                 onChange={(e) => setStoryRole(e.target.value as ActorType)}
@@ -503,11 +340,11 @@ const CapacityBuilding: React.FC = () => {
                               </select>
                           </div>
                           <div className="space-y-2">
-                              <label className="text-[10px] font-black text-green-300 uppercase tracking-widest ml-1">Simulated Objective</label>
+                              <label className="text-[10px] font-black text-green-300 uppercase tracking-widest ml-1">Operational Goal</label>
                               <textarea 
                                 value={storyGoal}
                                 onChange={(e) => setStoryGoal(e.target.value)}
-                                placeholder="Describe a specific objective (e.g., I am AFROGEO and I need to provide 50 skilled harvesters to the Big Bend region)..."
+                                placeholder="e.g., I want to trace a livestock vaccination batch from clinic to farmer..."
                                 className="w-full h-32 p-5 bg-white/5 border border-white/20 rounded-2xl text-sm font-medium focus:ring-4 focus:ring-yellow-400/20 outline-none resize-none transition-all placeholder:text-green-700/50"
                               />
                           </div>
@@ -516,8 +353,8 @@ const CapacityBuilding: React.FC = () => {
                             disabled={isGeneratingStory || !storyGoal.trim()}
                             className="w-full bg-[#FBBF24] text-[#1B4D3E] py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-yellow-400 disabled:opacity-50 flex items-center justify-center gap-3 transition-all active:scale-95 group"
                           >
-                              {isGeneratingStory ? <Loader2 size={20} className="animate-spin"/> : <Sparkles size={20} className="group-hover:rotate-12 transition-transform" />}
-                              {isGeneratingStory ? 'Synthesizing Step-by-Step...' : 'Synthesize Workflow'}
+                              {isGeneratingStory ? <Loader2 size={20} className="animate-spin"/> : <Sparkles size={20} />}
+                              {isGeneratingStory ? 'Synthesizing...' : 'Generate Simulation'}
                           </button>
                       </div>
                   </div>
@@ -529,10 +366,7 @@ const CapacityBuilding: React.FC = () => {
                                   <div className="flex justify-between items-center mb-10 pb-6 border-b border-white/10">
                                      <div className="flex items-center gap-4">
                                          <div className="p-3 bg-yellow-400/20 text-yellow-400 rounded-2xl shadow-lg border border-yellow-400/30"><Activity size={24}/></div>
-                                         <div>
-                                             <h4 className="font-black text-white text-xl m-0 leading-none">Simulation Log</h4>
-                                             <p className="text-[10px] text-green-400 font-bold uppercase tracking-widest mt-1">Cross-Module Integration Enabled</p>
-                                         </div>
+                                         <h4 className="font-black text-white text-xl m-0 leading-none">Simulation Result</h4>
                                      </div>
                                      <button onClick={() => setGeneratedStory(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/40 hover:text-white"><X size={24}/></button>
                                   </div>
@@ -540,24 +374,15 @@ const CapacityBuilding: React.FC = () => {
                               </div>
                           ) : (
                               <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 py-10">
-                                  <div className="relative">
-                                      <div className="w-28 h-28 bg-white/5 rounded-[2rem] flex items-center justify-center border border-white/10 shadow-2xl animate-pulse">
-                                          <Fingerprint size={56} className="text-green-500 opacity-40"/>
-                                      </div>
-                                      <div className="absolute -top-4 -right-4 bg-[#FBBF24] p-3 rounded-2xl text-[#1B4D3E] shadow-xl rotate-12">
-                                          <TrendingUp size={24} />
-                                      </div>
+                                  <div className="w-28 h-28 bg-white/5 rounded-[2rem] flex items-center justify-center border border-white/10 shadow-2xl">
+                                      <Fingerprint size={56} className="text-green-500 opacity-40"/>
                                   </div>
-                                  <div className="space-y-2">
-                                      <p className="font-black text-2xl text-green-300">Ready for Synthesis</p>
-                                      <p className="text-xs max-w-xs mx-auto text-green-100/40 font-medium leading-relaxed">Select a persona card above or input a custom trade objective to begin the technical journey visualization with refined chronology IDs (SZ-XXXX-...).</p>
-                                  </div>
+                                  <p className="text-xs max-w-xs mx-auto text-green-100/40 font-medium leading-relaxed">Select a persona card or input a goal to begin.</p>
                               </div>
                           )}
                       </div>
                   </div>
               </div>
-              <Sparkles size={500} className="absolute -bottom-60 -left-40 text-white/5 pointer-events-none z-0 rotate-12" />
           </div>
       </div>
   );
@@ -655,7 +480,7 @@ const CapacityBuilding: React.FC = () => {
        <div className="flex flex-col md:flex-row justify-between items-end border-b border-slate-200 pb-8 gap-6">
         <div className="space-y-1">
           <h2 className="text-4xl font-black text-[#1B4D3E] tracking-tight">Institutional Capacity</h2>
-          <p className="text-slate-500 font-medium text-lg">Role-based frameworks and agricultural knowledge bank.</p>
+          <p className="text-slate-500 font-medium text-lg">Operational workflows and national agricultural knowledge bank.</p>
         </div>
         <div className="flex gap-2 bg-white p-2 rounded-3xl border border-slate-200 shadow-sm">
             <button onClick={() => setActiveTab('user_stories')} className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'user_stories' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>User Stories</button>
@@ -679,7 +504,7 @@ const CapacityBuilding: React.FC = () => {
                 </div>
                 <div className="space-y-6">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Classification</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Classification</label>
                         <select value={targetCategory} onChange={(e) => setTargetCategory(e.target.value)} className="w-full p-4 border border-slate-100 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-4 focus:ring-emerald-500/5 transition-all">
                             {documentCategories.map((cat: any) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                         </select>
@@ -703,13 +528,12 @@ const CapacityBuilding: React.FC = () => {
                              </div>
                          )}
                     </div>
-                    <button onClick={handleUpload} disabled={!newFile} className="w-full bg-[#1B4D3E] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-green-900/20 hover:bg-[#143d31] disabled:opacity-50 transition-all">Publish to National Repository</button>
+                    <button onClick={handleUpload} disabled={!newFile} className="w-full bg-[#1B4D3E] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-green-900/20 hover:bg-[#143d31] disabled:opacity-50 transition-all">Publish Resource</button>
                 </div>
             </div>
         </div>
       )}
 
-      {/* Floating Upload Trigger */}
       <button 
         onClick={() => setShowUploadModal(true)}
         className="fixed bottom-10 left-10 p-5 bg-[#1B4D3E] text-white rounded-[1.5rem] shadow-2xl hover:scale-110 transition-all z-40 border border-white/10"

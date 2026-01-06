@@ -74,7 +74,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
               reader.readAsDataURL(file);
               reader.onload = async () => {
                   const base64 = (reader.result as string).split(',')[1];
-                  const extracted = await extractPersonalDetailsFromID(base64);
+                  const extracted = await extractPersonalDetailsFromID(base64, file.type);
                   if (extracted) {
                       setFormData(prev => ({
                           ...prev,

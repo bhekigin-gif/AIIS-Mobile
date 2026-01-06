@@ -1,6 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Building2, Phone, Mail, MapPin, Megaphone, AlertTriangle, FileText, Download, ChevronRight, ArrowLeft, Upload, X, Plus, Loader2 } from 'lucide-react';
+import { 
+  Building2, Phone, MapPin, Megaphone, AlertTriangle, 
+  FileText, Download, ChevronRight, ArrowLeft, Upload, X, 
+  Plus, Loader2, Sparkles, Smartphone, ShieldCheck, 
+  Globe, Zap, Tractor, ShoppingCart
+} from 'lucide-react';
 import { Get_System_Metadata } from '../services/adminDataService';
 
 type InfoTab = 'about' | 'contacts' | 'announcements' | 'early_warning';
@@ -15,56 +20,39 @@ interface DocumentItem {
 const Information: React.FC = () => {
   const [activeTab, setActiveTab] = useState<InfoTab>('about');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-
-  // System Metadata State
   const [systemMetadata, setSystemMetadata] = useState<any>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [newFile, setNewFile] = useState<File | null>(null);
+  const [targetCategory, setTargetCategory] = useState('');
 
   useEffect(() => {
     const loadMetadata = async () => {
         const data = await Get_System_Metadata();
         setSystemMetadata(data);
+        if (data && data.announcementCategories.length > 0) {
+            setTargetCategory(data.announcementCategories[0]);
+        }
     };
     loadMetadata();
   }, []);
 
-  // Upload State
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [newFile, setNewFile] = useState<File | null>(null);
-  const [targetCategory, setTargetCategory] = useState('');
-
-  // Synchronize target category when metadata loads
-  useEffect(() => {
-      if (systemMetadata && systemMetadata.announcementCategories.length > 0) {
-          setTargetCategory(systemMetadata.announcementCategories[0]);
-      }
-  }, [systemMetadata]);
-
-  // Split categories for UI logic
   const announcementCategories = systemMetadata?.announcementCategories.filter((c: string) => !c.toLowerCase().includes('alert') && !c.toLowerCase().includes('outbreak')) || [];
   const warningCategories = systemMetadata?.announcementCategories.filter((c: string) => c.toLowerCase().includes('alert') || c.toLowerCase().includes('outbreak')) || [];
 
-  // Mock Data generation
   const initialDocs: DocumentItem[] = [
-     ...Array(6).fill(0).map((_,i) => ({ id: `gen-${i}`, name: `General_Notice_${i+1}.pdf`, category: 'General Announcements', date: '2023-10-10' })),
-     ...Array(2).fill(0).map((_,i) => ({ id: `ten-${i}`, name: `Tender_Doc_${i+1}.pdf`, category: 'Tenders & Vacancies', date: '2023-11-05' })),
-     ...Array(3).fill(0).map((_,i) => ({ id: `wea-${i}`, name: `Weather_Alert_${i+1}.pdf`, category: 'Weather Alerts', date: '2023-11-12' })),
-     ...Array(1).fill(0).map((_,i) => ({ id: `pes-${i}`, name: `Pest_Outbreak_Report.pdf`, category: 'Pest & Disease Outbreaks', date: '2023-10-25' })),
+     ...Array(6).fill(0).map((_,i) => ({ id: `gen-${i}`, name: `General_Notice_${i+1}.pdf`, category: 'General Announcements', date: '2024-03-01' })),
+     ...Array(2).fill(0).map((_,i) => ({ id: `ten-${i}`, name: `Tender_Doc_2024_03.pdf`, category: 'Tenders & Vacancies', date: '2024-03-05' })),
+     ...Array(3).fill(0).map((_,i) => ({ id: `wea-${i}`, name: `Rainfall_Alert_Hhohho.pdf`, category: 'Weather Alerts', date: '2024-03-12' })),
+     ...Array(1).fill(0).map((_,i) => ({ id: `pes-${i}`, name: `FAW_Outbreak_Report_Lubombo.pdf`, category: 'Pest & Disease Outbreaks', date: '2024-02-25' })),
   ];
   
   const [documents, setDocuments] = useState<DocumentItem[]>(initialDocs);
 
-  const getFileUrl = (fileName: string) => {
-    return `https://www.agrinfosystems.gov.sz/assets/uploads${encodeURIComponent(fileName)}`;
-  };
+  const getFileUrl = (fileName: string) => `https://www.agrinfosystems.gov.sz/assets/uploads${encodeURIComponent(fileName)}`;
 
   const handleUpload = () => {
     if (newFile) {
-        const newDoc: DocumentItem = {
-            id: `new-${Date.now()}`,
-            name: newFile.name,
-            category: targetCategory,
-            date: new Date().toISOString().split('T')[0]
-        };
+        const newDoc: DocumentItem = { id: `new-${Date.now()}`, name: newFile.name, category: targetCategory, date: new Date().toISOString().split('T')[0] };
         setDocuments([newDoc, ...documents]);
         setShowUploadModal(false);
         setNewFile(null);
@@ -74,207 +62,144 @@ const Information: React.FC = () => {
   if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
 
   const renderAbout = () => (
-    <div className="space-y-8 animate-fade-in">
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 bg-[#1B4D3E] rounded-full flex items-center justify-center text-[#FBBF24]">
-            <Building2 size={32} />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-[#1B4D3E]">Ministry of Agriculture</h2>
-            <p className="text-slate-500">Kingdom of Eswatini</p>
-          </div>
+    <div className="space-y-4 sm:space-y-8 animate-fade-in">
+      <div className="bg-white p-6 sm:p-10 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden">
+        <div className="relative z-10">
+            <div className="flex items-center gap-4 mb-8 sm:mb-10">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-[#1B4D3E] rounded-2xl flex items-center justify-center text-[#FBBF24] shadow-lg">
+                    <Smartphone size={32} />
+                </div>
+                <div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-[#1B4D3E] tracking-tight leading-none">AIIS Mobile</h2>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[8px] sm:text-[10px] mt-2">National Agricultural Nerve Center</p>
+                </div>
+            </div>
+            
+            <div className="space-y-6 sm:space-y-8 text-slate-600">
+                <p className="text-base sm:text-lg leading-relaxed font-medium italic text-slate-500 border-l-4 border-[#FBBF24] pl-4 sm:pl-6">
+                    A comprehensive digital ecosystem unifying the agricultural value chain in Eswatini.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3 text-[#1B4D3E]">
+                            <Tractor size={20} />
+                            <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">Production GIS</h3>
+                        </div>
+                        <p className="text-xs sm:text-sm leading-relaxed opacity-80">Empowering farmers with GIS mapping and operational logging for full batch traceability.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3 text-[#1B4D3E]">
+                            <ShoppingCart size={20} />
+                            <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">Trade Hub</h3>
+                        </div>
+                        <p className="text-xs sm:text-sm leading-relaxed opacity-80">Connecting vetted producers with institutional buyers and agro-processors nationally.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3 text-emerald-600">
+                            <Sparkles size={20} />
+                            <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">AI Expert</h3>
+                        </div>
+                        <p className="text-xs sm:text-sm leading-relaxed opacity-80">Instant crop diagnosis and pathology advisory using computer vision and policy knowledge.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3 text-indigo-600">
+                            <ShieldCheck size={20} />
+                            <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">Oversight</h3>
+                        </div>
+                        <p className="text-xs sm:text-sm leading-relaxed opacity-80">Ministry-level monitoring ensuring food security and certification compliance across all nodes.</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div className="prose prose-slate max-w-none text-slate-600 space-y-6">
-          <p className="text-lg leading-relaxed">
-            The Ministry of Agriculture is dedicated to ensuring food security, sustainable agricultural development, 
-            and the commercialization of the sector in Eswatini. We strive to provide efficient services to farmers, 
-            processors, and all stakeholders in the value chain.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-green-50 p-6 rounded-lg border border-green-100">
-              <h3 className="font-bold text-[#1B4D3E] mb-2">Our Vision</h3>
-              <p className="text-sm">
-                A vibrant, commercialized, and sustainable agricultural sector that ensures national food security and economic growth.
-              </p>
-            </div>
-            <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-100">
-              <h3 className="font-bold text-amber-700 mb-2">Our Mission</h3>
-              <p className="text-sm">
-                To promote agricultural productivity and diversification through sustainable management of natural resources and effective support services.
-              </p>
-            </div>
-            <div className="bg-blue-50 p-6 rounded-lg border border-blue-100">
-              <h3 className="font-bold text-blue-800 mb-2">Our Mandate</h3>
-              <p className="text-sm">
-                To formulate policy and legislation, regulate the sector, and provide extension services to enhance agricultural output.
-              </p>
-            </div>
-          </div>
-        </div>
+        <Building2 size={240} className="absolute -bottom-10 -right-10 text-slate-50 pointer-events-none -z-0 opacity-40" />
       </div>
     </div>
   );
 
   const renderContacts = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-xl font-bold text-[#1B4D3E] mb-6 flex items-center gap-2">
-          <MapPin className="text-[#FBBF24]" /> Headquarters
-        </h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 animate-fade-in">
+      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
         <div className="space-y-6">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <MapPin size={20} className="text-slate-600" />
+            <h3 className="text-base sm:text-lg font-black text-[#1B4D3E] flex items-center gap-3 uppercase tracking-tight">
+            <MapPin className="text-emerald-600" size={20} /> Headquarters
+            </h3>
+            <div className="space-y-4">
+                <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Physical</p>
+                <p className="text-xs sm:text-sm text-slate-700 font-bold leading-relaxed">Ministry of Agriculture Building<br />Sozisa & Mdada Street, Mbabane</p>
+                </div>
+                <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Postal</p>
+                <p className="text-xs sm:text-sm text-slate-700 font-bold">P.O. Box 162, Mbabane, H100</p>
+                </div>
             </div>
-            <div>
-              <p className="font-bold text-slate-800">Physical Address</p>
-              <p className="text-slate-600">Ministry of Agriculture Building</p>
-              <p className="text-slate-600">Corner of Sozisa and Mdada Street</p>
-              <p className="text-slate-600">Mbabane, Eswatini</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-             <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Mail size={20} className="text-slate-600" />
-            </div>
-            <div>
-              <p className="font-bold text-slate-800">Postal Address</p>
-              <p className="text-slate-600">P.O. Box 162</p>
-              <p className="text-slate-600">Mbabane, H100</p>
-            </div>
-          </div>
         </div>
       </div>
 
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-xl font-bold text-[#1B4D3E] mb-6 flex items-center gap-2">
-          <Phone className="text-[#FBBF24]" /> Contact Channels
-        </h3>
+      <div className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between">
         <div className="space-y-6">
-           <div className="flex items-start gap-4">
-             <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center flex-shrink-0">
-              <Phone size={20} className="text-green-600" />
+            <h3 className="text-base sm:text-lg font-black text-[#1B4D3E] flex items-center gap-3 uppercase tracking-tight">
+            <Phone className="text-indigo-600" size={20} /> Contact
+            </h3>
+            <div className="space-y-4">
+                <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Enquiries</p>
+                <p className="text-lg text-[#1B4D3E] font-black tracking-tight">+268 2404 2731</p>
+                </div>
+                <div>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Email</p>
+                <a href="mailto:info@moa.gov.sz" className="text-indigo-600 font-black hover:underline text-sm sm:text-base">info@moa.gov.sz</a>
+                </div>
             </div>
-            <div>
-              <p className="font-bold text-slate-800">General Enquiries</p>
-              <p className="text-lg text-[#1B4D3E] font-mono font-bold">+268 2404 2731</p>
-              <p className="text-lg text-[#1B4D3E] font-mono font-bold">+268 2404 9800</p>
-            </div>
-          </div>
-           <div className="flex items-start gap-4">
-             <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
-              <Mail size={20} className="text-blue-600" />
-            </div>
-            <div>
-              <p className="font-bold text-slate-800">Email Support</p>
-              <a href="mailto:info@moa.gov.sz" className="text-blue-600 hover:underline">info@moa.gov.sz</a>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 
-  const renderDocumentsList = (title: string, color: string, icon: React.ReactNode) => {
-     const filteredDocs = documents.filter(d => d.category === title);
-
-     return (
-     <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 animate-fade-in">
-        <button 
-            onClick={() => setSelectedFolder(null)}
-            className="mb-4 text-sm text-slate-500 hover:text-[#1B4D3E] flex items-center gap-1"
-        >
-            <ArrowLeft size={16} /> Back
-        </button>
-        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-            <div className={`p-3 bg-${color}-50 rounded-lg text-${color}-600`}>
-                {icon}
-            </div>
-            <h4 className="text-lg font-bold text-slate-800">
-                {title}
-            </h4>
-        </div>
-        
-        {/* File List */}
-        <div className="space-y-2">
-            {filteredDocs.length > 0 ? filteredDocs.map((doc, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg border border-transparent hover:border-slate-200 transition-all group">
-                        <div className="flex items-center gap-3">
-                            <FileText size={18} className="text-slate-400" />
-                            <div>
-                                <p className="text-sm font-medium text-slate-700">{doc.name}</p>
-                                <p className="text-xs text-slate-400">Date: {doc.date} • PDF</p>
-                            </div>
-                        </div>
-                        <a 
-                            href={getFileUrl(doc.name)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-slate-400 hover:text-[#1B4D3E] hover:bg-green-50 rounded-full transition-colors"
-                            download
-                            title="Download Document"
-                        >
-                            <Download size={18} />
-                        </a>
-                    </div>
-                )) : (
-                    <div className="p-4 text-center text-slate-400 text-sm">No documents uploaded yet.</div>
-                )}
-        </div>
-    </div>
-  )};
-
   const renderAnnouncements = () => {
-    if (selectedFolder) return renderDocumentsList(selectedFolder, 'orange', <Megaphone size={20} />);
-
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-            {announcementCategories.map((c: string) => (
-                <button 
-                    key={c}
-                    onClick={() => setSelectedFolder(c)}
-                    className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-orange-500/30 transition-all text-left group"
-                >
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2 bg-orange-50 rounded-lg group-hover:bg-orange-100 transition-colors text-orange-600">
-                            <Megaphone size={20} />
+    if (selectedFolder) return (
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 sm:p-10 animate-fade-in max-w-4xl mx-auto">
+        <button onClick={() => setSelectedFolder(null)} className="mb-6 text-[10px] font-black text-slate-400 hover:text-[#1B4D3E] flex items-center gap-2 uppercase tracking-widest">
+            <ArrowLeft size={16} /> Back to Library
+        </button>
+        <div className="flex items-center gap-4 mb-8 pb-4 border-b border-slate-50">
+            <Megaphone size={24} className="text-amber-600" />
+            <div>
+                <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">{selectedFolder}</h4>
+                <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Official Repository Notices</p>
+            </div>
+        </div>
+        <div className="space-y-2">
+            {documents.filter(d => d.category === selectedFolder).map((doc, i) => (
+                <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl border border-transparent hover:border-slate-100 transition-all group">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <FileText size={18} className="text-slate-300 shrink-0" />
+                        <div className="overflow-hidden">
+                            <p className="text-[11px] sm:text-xs font-black text-slate-700 truncate">{doc.name}</p>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase">{doc.date}</p>
                         </div>
-                        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full group-hover:bg-white">
-                            {documents.filter(d => d.category === c).length}
-                        </span>
                     </div>
-                    <h4 className="font-bold text-slate-700 group-hover:text-orange-700 mb-1">{c}</h4>
-                    <p className="text-xs text-slate-400">View Notices <ChevronRight size={10} className="inline ml-1" /></p>
-                </button>
+                    <a href={getFileUrl(doc.name)} target="_blank" rel="noopener noreferrer" className="p-2 text-slate-300 hover:text-emerald-600 bg-white rounded-xl shadow-sm border border-slate-50" download>
+                        <Download size={16} />
+                    </a>
+                </div>
             ))}
         </div>
+      </div>
     );
-  };
-
-  const renderEarlyWarning = () => {
-    if (selectedFolder) return renderDocumentsList(selectedFolder, 'red', <AlertTriangle size={20} />);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-            {warningCategories.map((c: string) => (
-                <button 
-                    key={c}
-                    onClick={() => setSelectedFolder(c)}
-                    className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md hover:border-red-500/30 transition-all text-left group"
-                >
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="p-2 bg-red-50 rounded-lg group-hover:bg-red-100 transition-colors text-red-600">
-                            <AlertTriangle size={20} />
-                        </div>
-                        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full group-hover:bg-white">
-                             {documents.filter(d => d.category === c).length}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+            {announcementCategories.map((c: string) => (
+                <button key={c} onClick={() => setSelectedFolder(c)} className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 hover:border-amber-500/30 transition-all text-left group h-40 flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                        <div className="p-3 bg-amber-50 rounded-xl text-amber-600"><Megaphone size={24} /></div>
+                        <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">
+                            {documents.filter(d => d.category === c).length} FILES
                         </span>
                     </div>
-                    <h4 className="font-bold text-slate-700 group-hover:text-red-700 mb-1">{c}</h4>
-                    <p className="text-xs text-slate-400">View Alerts <ChevronRight size={10} className="inline ml-1" /></p>
+                    <h4 className="font-black text-slate-700 text-sm tracking-tight leading-tight">{c}</h4>
                 </button>
             ))}
         </div>
@@ -282,109 +207,65 @@ const Information: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+    <div className="space-y-6 sm:space-y-10 pb-20">
+      <div className="flex flex-col gap-6">
         <div>
-            <h2 className="text-2xl font-bold text-[#1B4D3E]">Information Centre</h2>
-            <div className="flex gap-6 mt-6 overflow-x-auto">
-            <button 
-                onClick={() => { setActiveTab('about'); setSelectedFolder(null); }}
-                className={`pb-2 text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${activeTab === 'about' ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-            >
-                About Us
-            </button>
-            <button 
-                onClick={() => { setActiveTab('contacts'); setSelectedFolder(null); }}
-                className={`pb-2 text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${activeTab === 'contacts' ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-            >
-                Contacts
-            </button>
-            <button 
-                onClick={() => { setActiveTab('announcements'); setSelectedFolder(null); }}
-                className={`pb-2 text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${activeTab === 'announcements' ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-            >
-                Announcements
-            </button>
-            <button 
-                onClick={() => { setActiveTab('early_warning'); setSelectedFolder(null); }}
-                className={`pb-2 text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${activeTab === 'early_warning' ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-            >
-                Early Warning
-            </button>
+            <h2 className="text-2xl sm:text-4xl font-black text-[#1B4D3E] tracking-tight">Information Centre</h2>
+            <div className="flex gap-4 sm:gap-8 mt-6 overflow-x-auto no-scrollbar pb-2 border-b border-slate-100">
+                {(['about', 'contacts', 'announcements', 'early_warning'] as const).map((tab) => (
+                    <button key={tab} onClick={() => { setActiveTab(tab); setSelectedFolder(null); }} className={`pb-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${activeTab === tab ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-400'}`}>
+                        {tab.replace('_', ' ')}
+                    </button>
+                ))}
             </div>
         </div>
-        <div>
-             <button 
-                onClick={() => setShowUploadModal(true)}
-                className="flex items-center gap-2 bg-[#1B4D3E] text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm hover:bg-[#143d31] transition-colors"
-             >
-                <Upload size={14} /> Upload Document
-             </button>
-        </div>
+        <button onClick={() => setShowUploadModal(true)} className="flex items-center justify-center gap-2 bg-[#1B4D3E] text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all w-full sm:w-fit">
+          <Upload size={14} /> Upload Doc
+        </button>
       </div>
 
-      <div className="min-h-[500px]">
+      <div className="min-h-[400px]">
         {activeTab === 'about' && renderAbout()}
         {activeTab === 'contacts' && renderContacts()}
         {activeTab === 'announcements' && renderAnnouncements()}
-        {activeTab === 'early_warning' && renderEarlyWarning()}
+        {activeTab === 'early_warning' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+            {warningCategories.map((c: string) => (
+                <button key={c} onClick={() => setSelectedFolder(c)} className="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 hover:border-rose-500/30 transition-all text-left group h-40 flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                        <div className="p-3 bg-rose-50 rounded-xl text-rose-600"><AlertTriangle size={24} /></div>
+                        <span className="text-[9px] font-black text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">{documents.filter(d => d.category === c).length} FILES</span>
+                    </div>
+                    <h4 className="font-black text-slate-700 text-sm tracking-tight leading-tight">{c}</h4>
+                </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Upload Modal */}
       {showUploadModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-                <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-bold text-[#1B4D3E] flex items-center gap-2">
-                            <Upload size={20} /> Upload Public Notice
-                        </h3>
-                        <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-red-500">
-                            <X size={20} />
-                        </button>
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-slide-up">
+                    <div className="bg-[#1B4D3E] p-6 text-white flex justify-between items-center">
+                        <h3 className="text-lg font-black uppercase tracking-tight">Public Notice Upload</h3>
+                        <button onClick={() => setShowUploadModal(false)} className="p-2 hover:bg-white/10 rounded-full text-white/50"><X size={20}/></button>
                     </div>
-                    
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Category</label>
-                            <select 
-                                value={targetCategory}
-                                onChange={(e) => setTargetCategory(e.target.value)}
-                                className="w-full p-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-[#1B4D3E] outline-none"
-                            >
-                                {systemMetadata?.announcementCategories.map((c: string) => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
+                    <div className="p-8 space-y-6">
+                        <div className="space-y-1.5">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Classification</label>
+                            <select value={targetCategory} onChange={(e) => setTargetCategory(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm outline-none">
+                                {systemMetadata?.announcementCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select File</label>
-                            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:bg-slate-50 transition-colors cursor-pointer relative">
-                                <input 
-                                    type="file" 
-                                    className="absolute inset-0 opacity-0 cursor-pointer"
-                                    onChange={(e) => setNewFile(e.target.files?.[0] || null)}
-                                />
-                                {newFile ? (
-                                    <div className="text-[#1B4D3E] font-bold text-sm flex items-center justify-center gap-2">
-                                        <FileText size={16}/> {newFile.name}
-                                    </div>
-                                ) : (
-                                    <div className="text-slate-400 text-sm">
-                                        <Plus size={24} className="mx-auto mb-2"/>
-                                        <span className="font-bold">Click to Browse</span> or drag file here
-                                    </div>
-                                )}
-                            </div>
+                        <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center relative group">
+                            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => setNewFile(e.target.files?.[0] || null)}/>
+                            {newFile ? (
+                                <div className="space-y-2"><FileText className="mx-auto text-emerald-500" size={32}/><p className="text-[11px] font-black text-slate-800">{newFile.name}</p></div>
+                            ) : (
+                                <div className="space-y-2"><Plus className="mx-auto text-slate-300" size={32}/><p className="text-[10px] text-slate-400 font-bold uppercase">Attach PDF</p></div>
+                            )}
                         </div>
-
-                        <button 
-                            onClick={handleUpload}
-                            disabled={!newFile}
-                            className="w-full bg-[#1B4D3E] text-white py-3 rounded-lg font-bold hover:bg-[#143d31] disabled:opacity-50 disabled:cursor-not-allowed mt-4 shadow-lg"
-                        >
-                            Publish Document
-                        </button>
+                        <button onClick={handleUpload} disabled={!newFile} className="w-full bg-[#1B4D3E] text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-xl disabled:opacity-50 transition-all active:scale-95">Publish to Feed</button>
                     </div>
                 </div>
             </div>

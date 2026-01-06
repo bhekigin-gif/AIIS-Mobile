@@ -1,5 +1,4 @@
 
-
 export enum Region {
   Hhohho = 'Hhohho',
   Manzini = 'Manzini',
@@ -155,9 +154,9 @@ export interface CatalogueItem {
   availableConstituency: string;
   availableRegNo: string;
   status?: string;
+  image?: string;
 }
 
-// Added IndicatorItem interface for administrative reporting
 export interface IndicatorItem {
   id: string;
   commitment: string;

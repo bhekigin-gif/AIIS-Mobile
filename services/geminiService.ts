@@ -58,7 +58,7 @@ export const chatWithAgriBot = async (
 };
 
 // AI Vision to extract details from National ID cards
-export const extractPersonalDetailsFromID = async (base64Image: string): Promise<any> => {
+export const extractPersonalDetailsFromID = async (base64Image: string, mimeType: string = "image/jpeg"): Promise<any> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `EXTRACT DATA FROM ESWATINI ID:
@@ -66,9 +66,9 @@ export const extractPersonalDetailsFromID = async (base64Image: string): Promise
     Ignore background artifacts. Return strictly valid JSON.`;
     
     const response = await ai.models.generateContent({
-      model: VISION_MODEL_NAME, 
+      model: 'gemini-2.5-flash', 
       contents: {
-        parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: prompt }]
+        parts: [{ inlineData: { mimeType: mimeType, data: base64Image } }, { text: prompt }]
       },
       config: {
         responseMimeType: "application/json",
