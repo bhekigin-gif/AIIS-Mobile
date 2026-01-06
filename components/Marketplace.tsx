@@ -151,7 +151,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
         };
     });
     await Add_To_Master_Catalogue(items);
-    setCatalogue prev => [...items, ...prev]);
+    setCatalogue(prev => [...items, ...prev]);
     setShowMappingModal(false); setCsvHeaders([]); setCsvDataRows([]);
     alert(`Successfully imported ${items.length} items.`);
   };
