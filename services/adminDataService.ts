@@ -1,4 +1,3 @@
-
 import { UserProfile, UserRole, ActorType, EntityType, Region, SalesProduct, IndicatorItem, CatalogueItem, ResourceType } from '../types';
 import { db, Table } from './databaseService';
 
@@ -70,29 +69,24 @@ export const Register_New_User = async (user: UserProfile) => {
     return db.insert(Table.Users, user);
 };
 
-// Fix: explicit type for updates to allow status field
 export const updateUserStatus = async (id: string, status: string) => {
     return db.update<UserProfile>(Table.Users, id, { status: status as any });
 };
 
-// Added missing Get_Product_By_ID
 export const Get_Product_By_ID = async (id: string) => {
     const products = await db.getAll<SalesProduct>(Table.Products);
     return products.find(p => p.id === id);
 };
 
-// Added missing updateProductStatus
 export const updateProductStatus = async (id: string, status: string) => {
     return db.update<SalesProduct>(Table.Products, id, { status: status as any });
 };
 
-// Added missing View_Items_Awaiting_Approval
 export const View_Items_Awaiting_Approval = async () => {
     const products = await db.getAll<SalesProduct>(Table.Products);
     return products.filter(p => p.status === 'Pending Approval');
 };
 
-// Added missing View_Items_Rejected
 export const View_Items_Rejected = async () => {
     const products = await db.getAll<SalesProduct>(Table.Products);
     return products.filter(p => p.status === 'Rejected');
@@ -107,12 +101,10 @@ export const Add_To_Master_Catalogue = async (items: CatalogueItem[]) => {
     return updated;
 };
 
-// Added missing Delete_From_Master_Catalogue
 export const Delete_From_Master_Catalogue = async (id: string) => {
     return db.delete(Table.Catalogue, id);
 };
 
-// Added missing Bulk_Delete_From_Catalogue
 export const Bulk_Delete_From_Catalogue = async (ids: string[]) => {
     const items = await db.getAll<CatalogueItem>(Table.Catalogue);
     const filtered = items.filter(i => !ids.includes(i.registrationId));
@@ -120,7 +112,6 @@ export const Bulk_Delete_From_Catalogue = async (ids: string[]) => {
     return filtered;
 };
 
-// Added missing Bulk_Update_Catalogue_Status
 export const Bulk_Update_Catalogue_Status = async (ids: string[], status: string) => {
     const items = await db.getAll<CatalogueItem>(Table.Catalogue);
     const updated = items.map(i => ids.includes(i.registrationId) ? { ...i, status } : i);
@@ -139,7 +130,6 @@ export const Update_Catalogue_Status = async (registrationId: string, status: st
     return false;
 };
 
-// Added missing Affiliate_User_With_Org
 export const Affiliate_User_With_Org = async (userId: string, orgId: string, orgName: string) => {
     return db.update<UserProfile>(Table.Users, userId, { organizationId: orgId, organization: orgName });
 };
@@ -149,14 +139,20 @@ export const View_Trading_Catalogue_Items = () => db.getAll<SalesProduct>(Table.
 export const addProductToRegistry = (product: SalesProduct) => db.insert(Table.Products, product);
 
 export const Report_AIIS_Indicators = (reportType: 'MALABO' | 'NATIONAL' = 'NATIONAL'): IndicatorItem[] => {
-    // Note: In a real system, these would be computed from live DB data (Enterprises/Products)
+    // Note: In a production system, these would aggregate live DB stats.
     if (reportType === 'MALABO') {
         return [
-            { id: 'M1.1', commitment: 'CAADP Process', label: 'Biennial Review Participation', value: 10, target: 10, unit: 'Score', status: 'Milestone Reached', trend: 'stable' },
+            { id: 'M1.1', commitment: 'CAADP Process', label: 'Biennial Review Participation', value: 10, target: 10, unit: ' Score', status: 'Milestone Reached', trend: 'stable' },
             { id: 'M3.2', commitment: 'Ending Hunger', label: 'Reduction of Post-Harvest Loss', value: 12, target: 15, unit: '%', status: 'On Track', trend: 'up' },
+            { id: 'M4.1', commitment: 'Poverty Alleviation', label: 'Smallholder Market Penetration', value: 24, target: 50, unit: '%', status: 'Not on Track', trend: 'up' },
+            { id: 'M6.1', commitment: 'Resilience', label: 'Climate-Smart Adoption Rate', value: 38, target: 60, unit: '%', status: 'On Track', trend: 'up' },
         ];
     }
     return [
         { id: 'N1', category: 'Production', label: 'Maize Self-Sufficiency Index', value: 74, target: 100, unit: '%', status: 'Not on Track', trend: 'up', commitment: 'National Food Security' },
+        { id: 'N2', category: 'Registry', label: 'Stakeholder Digital Integration', value: 615, target: 2000, unit: ' Nodes', status: 'On Track', trend: 'up', commitment: 'Institutional Reach' },
+        { id: 'N3', category: 'Trade', label: 'Inter-Regional Commerce Liquidity', value: 4.2, target: 10, unit: 'M Emalangeni', status: 'Not on Track', trend: 'down', commitment: 'Value Chain Efficiency' },
+        { id: 'N4', category: 'Policy', label: 'Women & Youth Participation', value: 42, target: 50, unit: '%', status: 'On Track', trend: 'up', commitment: 'Inclusive Development' },
+        { id: 'N5', category: 'Compliance', label: 'ISO Standard Product Certification', value: 88, target: 100, unit: '%', status: 'Milestone Reached', trend: 'stable', commitment: 'Food Safety' },
     ];
 };

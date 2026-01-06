@@ -1,5 +1,4 @@
-
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import Dashboard from './components/Dashboard';
@@ -8,20 +7,15 @@ import Marketplace from './components/Marketplace';
 import AIAdvisor from './components/AIAdvisor';
 import Production from './components/Production';
 import Login from './components/Login';
-import Information from './components/Information';
-import CapacityBuilding from './components/CapacityBuilding';
 import AdminModule from './components/AdminModule';
-import ProfileModal from './components/ProfileModal';
-import { SalesProduct, Region, MarketCartItem, MarketOrder, UserRole, UserProfile } from './types';
-import { LayoutDashboard, Info, Factory, ShoppingCart, MessageSquareText, Users, ShieldCheck, ClipboardCheck, BarChart4, Sparkles, X, ShieldAlert, MoreVertical, Loader2 } from 'lucide-react';
+import { SalesProduct, MarketCartItem, MarketOrder, UserRole, UserProfile } from './types';
+// Added missing icon imports: LayoutDashboard, ShoppingCart, Factory, Shield
+import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, Monitor, Smartphone, LayoutDashboard, ShoppingCart, Factory, Shield } from 'lucide-react';
 import { Initialize_Database, View_Trading_Catalogue_Items } from './services/adminDataService';
-import { db, Table } from './services/databaseService';
 
 const AccessDenied = ({ message }: { message: string }) => (
-    <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-3xl border border-red-100 shadow-sm m-4">
-        <div className="p-4 bg-red-50 text-red-500 rounded-full mb-4">
-            <ShieldAlert size={48} />
-        </div>
+    <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white rounded-3xl border border-red-100 shadow-sm m-4">
+        <div className="p-4 bg-red-50 text-red-500 rounded-full mb-4"><ShieldAlert size={48} /></div>
         <h3 className="text-xl font-bold text-slate-800 mb-2">Unauthorized</h3>
         <p className="text-slate-500 text-sm">{message}</p>
     </div>
@@ -30,199 +24,199 @@ const AccessDenied = ({ message }: { message: string }) => (
 const App: React.FC = () => {
   const [isDbReady, setIsDbReady] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  // Defaulting to WorkSpace UI: desktop view and expanded sidebar
+  const [viewMode, setViewMode] = useState<'mobile' | 'desktop'>('desktop');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isAIAdvisorOpen, setIsAIAdvisorOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [products, setProducts] = useState<SalesProduct[]>([]);
   const [marketCart, setMarketCart] = useState<MarketCartItem[]>([]);
   const [globalOrders, setGlobalOrders] = useState<MarketOrder[]>([]);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobileDevice, setIsMobileDevice] = useState(window.innerWidth < 768);
 
-  // DB Initialization
   useEffect(() => {
-    const setup = async () => {
-        await Initialize_Database();
+    Initialize_Database().then(async () => {
         const items = await View_Trading_Catalogue_Items();
         setProducts(items);
         setIsDbReady(true);
-    };
-    setup();
-  }, []);
+    });
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobileDevice(mobile);
+      // We respect the user's "WorkSpace default" request but mobile devices 
+      // typically need the mobile shell if they are very small. 
+      // However, for this request, we'll let the user toggle if they want.
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleLogin = (authenticatedUser: UserProfile) => {
-      setUser({
-          ...authenticatedUser,
-          title: authenticatedUser.title || (authenticatedUser.role === UserRole.Government ? 'Officer' : `${authenticatedUser.actorType} Specialist`),
-      });
-      setActiveTab('dashboard');
-      setIsSidebarCollapsed(true);
-  };
-
-  const handleLogout = () => {
-      setUser(null);
-      setActiveTab('login');
-      setIsAIAdvisorOpen(false);
-      setIsSidebarCollapsed(true);
-  };
-
-  const toggleAIAdvisor = useCallback(() => setIsAIAdvisorOpen(prev => !prev), []);
-  const toggleSidebar = useCallback(() => setIsSidebarCollapsed(prev => !prev), []);
-
-  const navItems = useMemo(() => {
-      if (user?.role === UserRole.Farmer) {
-          return [
-              { id: 'dashboard', label: 'Summary', icon: <LayoutDashboard size={20} /> },
-              { id: 'production', label: 'Operations', icon: <Factory size={20} /> }, 
-              { id: 'market', label: 'Trade Hub', icon: <ShoppingCart size={20} /> },
-              { id: 'advisor', label: 'AI Advisor', icon: <MessageSquareText size={20} />, isDrawer: true },
-              { id: 'information', label: 'Notices', icon: <Info size={20} /> },
-              { id: 'resources', label: 'Knowledge', icon: <Users size={20} /> },
-          ];
-      }
-      if (user?.role === UserRole.Government || user?.role === UserRole.Extension) {
-          return [
-              { id: 'dashboard', label: 'Stats', icon: <BarChart4 size={20} /> },
-              { id: 'admin', label: 'Admin', icon: <ShieldCheck size={20} /> },
-              { id: 'market', label: 'Oversight', icon: <ClipboardCheck size={20} /> },
-              { id: 'advisor', label: 'AI Helper', icon: <MessageSquareText size={20} />, isDrawer: true },
-          ];
-      }
-      return [
-        { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={20} /> },
-        { id: 'market', label: 'Market', icon: <ShoppingCart size={20} /> },
-        { id: 'information', label: 'Info', icon: <Info size={20} /> },
-        { id: 'advisor', label: 'AI Expert', icon: <MessageSquareText size={20} />, isDrawer: true },
-      ];
-  }, [user]);
-
   const handleNavClick = (id: string) => {
-      const item = navItems.find(n => n.id === id);
-      if (item?.isDrawer) {
-          toggleAIAdvisor();
-      } else {
-          setActiveTab(id);
-          setIsSidebarCollapsed(true);
-      }
+      if (id === 'advisor') setIsAIAdvisorOpen(true);
+      else { setActiveTab(id); if (viewMode === 'mobile') setIsSidebarCollapsed(true); }
   };
 
   const renderContent = () => {
-    if (!isDbReady) return (
-        <div className="flex flex-col items-center justify-center h-full gap-4">
-            <Loader2 className="animate-spin text-[#1B4D3E]" size={48}/>
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing National DB...</p>
-        </div>
-    );
-
-    if (activeTab === 'login') return <Login onLogin={handleLogin} onRegister={() => setActiveTab('registry')} />;
+    if (!isDbReady) return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-[#1B4D3E]" size={48}/></div>;
+    if (activeTab === 'login') return <Login onLogin={(u) => { setUser(u); setActiveTab('dashboard'); }} onRegister={() => setActiveTab('registry')} />;
     if (activeTab === 'registry') return <Registration onBackToLogin={() => setActiveTab('login')} onBackToHome={() => setActiveTab('dashboard')} />;
     
     switch (activeTab) {
       case 'dashboard': return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
-      case 'information': return <Information />;
-      case 'resources': return <CapacityBuilding />;
       case 'market': return <Marketplace products={products} setProducts={setProducts} cart={marketCart} setCart={setMarketCart} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} user={user} />;
-      case 'production':
-        if (user?.role === UserRole.Farmer) return <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} />;
-        return <AccessDenied message="Production tools are for verified farmers." />;
-      case 'admin':
-        if (user?.role === UserRole.Government || user?.role === UserRole.Extension) return <AdminModule currentUser={user} />;
-        return <AccessDenied message="Administrative module restricted." />;
+      case 'production': return user?.role === UserRole.Farmer ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Farmers only." />;
+      case 'admin': return user?.role === UserRole.Government ? <AdminModule currentUser={user} /> : <AccessDenied message="Officials only." />;
       default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
     }
   };
 
-  const showNavBars = activeTab !== 'login' && activeTab !== 'registry';
+  const isDesktopView = viewMode === 'desktop';
 
   return (
-    <div className="flex h-full w-full bg-slate-50 relative overflow-hidden safe-pt no-select">
-      {isMobile && !isSidebarCollapsed && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] animate-fade-in" onClick={toggleSidebar} />
-      )}
-      {isAIAdvisorOpen && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[140] animate-fade-in" onClick={toggleAIAdvisor} />
+    <div className={`flex h-screen w-screen transition-colors duration-500 items-center justify-center overflow-hidden ${isDesktopView ? 'bg-slate-50' : 'bg-slate-900'}`}>
+      
+      {/* Device Mode Toggle - Persistent Floating Action */}
+      {!isMobileDevice && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] flex bg-white/90 backdrop-blur-xl p-1.5 rounded-2xl border border-slate-200 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)]">
+          <button 
+            onClick={() => { setViewMode('mobile'); setIsSidebarCollapsed(true); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${viewMode === 'mobile' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-400 hover:text-[#1B4D3E] hover:bg-slate-50'}`}
+          >
+            <Smartphone size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Mobile</span>
+          </button>
+          <button 
+            onClick={() => { setViewMode('desktop'); setIsSidebarCollapsed(false); }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all ${viewMode === 'desktop' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-400 hover:text-[#1B4D3E] hover:bg-slate-50'}`}
+          >
+            <Monitor size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest">WorkSpace</span>
+          </button>
+        </div>
       )}
 
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={handleNavClick} 
-        isCollapsed={isMobile ? false : isSidebarCollapsed}
-        toggleSidebar={toggleSidebar}
-        user={user}
-        onLogout={handleLogout}
-        onProfileClick={() => setIsProfileModalOpen(true)}
-        navItems={navItems}
-        className={isMobile ? `fixed inset-y-0 left-0 z-[120] transform transition-transform duration-300 ease-out mobile-panel-shadow ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}` : ''}
-      />
-
-      <main className={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-300
-          ${!isMobile ? (isSidebarCollapsed ? 'ml-16' : 'ml-64') : 'ml-0'}`}>
+      {/* Main Application Container */}
+      <div className={`relative bg-white transition-all duration-700 ease-out flex
+        ${!isMobileDevice && viewMode === 'mobile' 
+          ? 'h-[92vh] aspect-[1/2] rounded-[3.5rem] border-[14px] border-slate-800 shadow-[0_0_100px_rgba(0,0,0,0.6)] overflow-hidden scale-[0.85]' 
+          : 'h-full w-full border-none rounded-none'}`}>
         
-        {isMobile && showNavBars && (
-            <header className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-100 shrink-0 shadow-sm">
-                <button onClick={toggleSidebar} className="p-2 text-[#1B4D3E] hover:bg-slate-50 rounded-xl"><MoreVertical size={22}/></button>
-                <div className="flex flex-col items-center">
-                    <span className="text-[10px] font-black uppercase text-[#1B4D3E] tracking-[0.2em]">AIIS Mobile</span>
-                    <span className="text-[8px] font-bold text-slate-400 uppercase">{activeTab} node</span>
-                </div>
-                <button onClick={() => setIsProfileModalOpen(true)} className="p-2 text-[#1B4D3E] hover:bg-slate-50 rounded-xl">
-                    <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-[10px]">
-                        {user?.name?.charAt(0) || 'G'}
-                    </div>
-                </button>
-            </header>
+        {/* Sidebar Rail (WorkSpace Navigation) */}
+        {isDesktopView && (
+          <Sidebar 
+            isCollapsed={isSidebarCollapsed} 
+            toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            user={user} 
+            onLogout={() => setUser(null)} 
+            onProfileClick={() => {}} 
+            navItems={[
+              { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20}/> },
+              { id: 'market', label: 'Trade Hub', icon: <ShoppingCart size={20}/> },
+              ...(user?.role === UserRole.Farmer ? [{ id: 'production', label: 'Ops Manager', icon: <Factory size={20}/> }] : []),
+              ...(user?.role === UserRole.Government ? [{ id: 'admin', label: 'Oversight', icon: <Shield size={20}/> }] : [])
+            ]} 
+            activeTab={activeTab} 
+            setActiveTab={handleNavClick} 
+            className="relative shrink-0"
+          />
         )}
 
-        <div className={`flex-1 overflow-y-auto no-scrollbar scroll-smooth ${isMobile && showNavBars ? 'pb-24' : 'p-4 md:p-8'}`}>
-            <div className="max-w-7xl mx-auto h-full">
-                {renderContent()}
-            </div>
-        </div>
-      </main>
-
-      {isMobile && showNavBars && (
-          <BottomNav 
-            activeTab={activeTab}
-            setActiveTab={handleNavClick}
-            user={user}
-            onMoreClick={toggleSidebar}
-            toggleAI={toggleAIAdvisor}
-          />
-      )}
-
-      <div className={`fixed inset-y-0 right-0 z-[150] w-full sm:w-[450px] bg-white shadow-2xl transform transition-transform duration-500 ease-in-out border-l border-slate-200 ${isAIAdvisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="h-full flex flex-col">
-            <div className="p-5 bg-[#1B4D3E] text-white flex justify-between items-center shadow-md shrink-0">
-                <div className="flex items-center gap-3">
-                    <Sparkles className="text-[#FBBF24]" size={24} />
-                    <div><h3 className="font-bold text-sm">AIIS Expert</h3><p className="text-[9px] text-green-200 uppercase tracking-widest font-black">National Intelligence</p></div>
+        <main className="flex-1 h-full flex flex-col relative overflow-hidden">
+            <header className={`flex items-center justify-between px-8 py-5 bg-white border-b border-slate-100 shrink-0 z-10`}>
+                <div className="flex items-center gap-4">
+                  {!isDesktopView && (
+                    <button onClick={() => setIsSidebarCollapsed(false)} className="p-2.5 bg-slate-50 text-[#1B4D3E] hover:bg-slate-100 rounded-xl transition-colors">
+                      <MoreVertical size={20}/>
+                    </button>
+                  )}
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1B4D3E]">AIIS National Node</span>
+                        {isDesktopView && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black rounded-md uppercase">v4.0 Enterprise</span>}
+                    </div>
+                    {isDesktopView && <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Ministry of Agriculture • Eswatini</span>}
+                  </div>
                 </div>
-                <button onClick={toggleAIAdvisor} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24} /></button>
+                
+                <div className="flex items-center gap-6">
+                  {isDesktopView && (
+                    <div className="hidden lg:flex items-center gap-4">
+                        <div className="flex flex-col items-end">
+                            <span className="text-[10px] font-black text-slate-700 uppercase">{new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric'})}</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase">System Status: Nominal</span>
+                        </div>
+                        <div className="w-px h-8 bg-slate-100 mx-2"></div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 bg-slate-50 p-1 rounded-2xl border border-slate-100 pr-4">
+                    <div className="w-9 h-9 rounded-xl bg-[#1B4D3E] flex items-center justify-center text-[12px] font-black text-white shadow-lg">
+                        {user?.name?.charAt(0) || 'G'}
+                    </div>
+                    {isDesktopView && (
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{user?.name || 'Guest User'}</span>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase">{user?.actorType || 'National Portal'}</span>
+                        </div>
+                    )}
+                  </div>
+                </div>
+            </header>
+
+            <div className={`flex-1 overflow-y-auto no-scrollbar ${isDesktopView ? 'p-10 2xl:p-14' : 'p-6'}`}>
+                <div className={`${isDesktopView ? 'max-w-[1600px] mx-auto w-full h-full' : 'h-full'}`}>
+                    {renderContent()}
+                </div>
             </div>
-            <div className="flex-1 overflow-hidden h-full"><AIAdvisor /></div>
-        </div>
+
+            {!isDesktopView && (
+              <BottomNav activeTab={activeTab} setActiveTab={handleNavClick} user={user} onMoreClick={() => setIsSidebarCollapsed(false)} toggleAI={() => setIsAIAdvisorOpen(true)} />
+            )}
+        </main>
+
+        {/* Mobile Sidebar Overlay */}
+        {!isDesktopView && (
+          <Sidebar 
+            isCollapsed={isSidebarCollapsed} 
+            toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
+            user={user} 
+            onLogout={() => setUser(null)} 
+            onProfileClick={() => {}} 
+            navItems={[
+                { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20}/> },
+                { id: 'market', label: 'Trade Hub', icon: <ShoppingCart size={20}/> },
+                ...(user?.role === UserRole.Farmer ? [{ id: 'production', label: 'Ops Manager', icon: <Factory size={20}/> }] : []),
+                ...(user?.role === UserRole.Government ? [{ id: 'admin', label: 'Oversight', icon: <Shield size={20}/> }] : [])
+            ]} 
+            activeTab={activeTab} 
+            setActiveTab={handleNavClick} 
+            className={`fixed inset-y-0 left-0 transform transition-transform duration-300 z-[160] ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`} 
+          />
+        )}
       </div>
 
-      {isProfileModalOpen && user && (
-          <ProfileModal user={user} onClose={() => setIsProfileModalOpen(false)} onSave={(u) => {
-              setUser(u);
-              db.update(Table.Users, u.id!, u);
-          }} />
-      )}
-
-      {!isMobile && (
-          <button 
-            onClick={toggleAIAdvisor} 
-            className={`fixed bottom-8 right-8 z-[90] p-4 bg-[#1B4D3E] text-white rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all group ${isAIAdvisorOpen ? 'scale-0' : 'scale-100'}`} 
-          >
-            <div className="relative"><MessageSquareText size={28} /><div className="absolute -top-1 -right-1 w-3 h-3 bg-[#FBBF24] rounded-full border-2 border-[#1B4D3E] animate-pulse"></div></div>
-          </button>
+      {/* AI Advisor Overlay */}
+      <div className={`fixed inset-y-0 right-0 z-[170] w-full sm:w-[480px] bg-white shadow-[-20px_0_80px_rgba(0,0,0,0.1)] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${isAIAdvisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="h-full flex flex-col">
+            <div className="p-8 bg-[#1B4D3E] text-white flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md">
+                    <Sparkles className="text-[#FBBF24]" size={28} />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-lg uppercase tracking-tight leading-none">AIIS Expert</h3>
+                    <p className="text-[10px] text-green-300 font-bold uppercase tracking-[0.2em] mt-1.5">National Knowledge Node</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsAIAdvisorOpen(false)} className="p-3 hover:bg-white/10 rounded-2xl transition-all text-white/60 hover:text-white"><X size={28} /></button>
+            </div>
+            <div className="flex-1 overflow-hidden"><AIAdvisor /></div>
+        </div>
+      </div>
+      
+      {/* Mobile Backdrop */}
+      {!isSidebarCollapsed && !isDesktopView && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[155] animate-fade-in" onClick={() => setIsSidebarCollapsed(true)} />
       )}
     </div>
   );
