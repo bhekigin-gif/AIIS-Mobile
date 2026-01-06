@@ -14,8 +14,11 @@ import {
     LockKeyhole,
     Camera,
     ListFilter,
-    // Fix: Add missing AlertCircle import
-    AlertCircle
+    AlertCircle,
+    Download,
+    DatabaseZap,
+    Network,
+    HardDriveDownload
 } from 'lucide-react';
 import { 
     View_All_System_Users, 
@@ -26,29 +29,62 @@ import {
     Update_System_Metadata,
     Bulk_Delete_From_Catalogue,
     Bulk_Update_Catalogue_Status,
-    updateUserStatus
+    updateUserStatus,
+    Register_New_User
 } from '../services/adminDataService';
 import { db, Table as DbTable } from '../services/databaseService';
-import { UserRole, CatalogueItem, IndicatorItem, SalesProduct, UserProfile, Region } from '../types';
+import { UserRole, CatalogueItem, IndicatorItem, SalesProduct, UserProfile, Region, ActorType, EntityType } from '../types';
 
 interface AdminModuleProps {
     currentUser: UserProfile | null;
 }
 
-const MAPPABLE_FIELDS = [
-    { key: 'registrationId', label: 'Registry ID' },
-    { key: 'division', label: 'Division' },
-    { key: 'category', label: 'Category' },
-    { key: 'subCategory', label: 'Subcategory Name' },
-    { key: 'productType', label: 'Product Type' },
-    { key: 'tradeName', label: 'Trade Name' },
-    { key: 'size', label: 'Size' },
-    { key: 'unit', label: 'Unit' },
-    { key: 'manufacturerName', label: 'Manufacturer Name' },
-    { key: 'manufacturerUrl', label: 'Manufacturer URL' },
-    { key: 'productStandardDescription', label: 'Standard Description' },
-    { key: 'productStandardUrl', label: 'Standard URL' },
-    { key: 'description', label: 'Internal Description' },
+// Entity Template Definitions for Data Hub
+const DATA_SCHEMAS = [
+    {
+        id: 'users',
+        name: 'User Registry',
+        icon: <Users size={20}/>,
+        description: 'Primary identity records for all agricultural stakeholders.',
+        fields: [
+            { key: 'id', label: 'Identity PIN', required: true, hint: 'Unique ID/Passport' },
+            { key: 'name', label: 'Full Name', required: true },
+            { key: 'email', label: 'Email', required: false },
+            { key: 'role', label: 'System Role', required: true, hint: 'Farmer, Government, etc' },
+            { key: 'actorType', label: 'Institutional Actor', required: true, hint: 'Supplier, Processor, etc' },
+            { key: 'region', label: 'Admin Region', required: true },
+            { key: 'status', label: 'Current Status', required: false, default: 'Active' }
+        ]
+    },
+    {
+        id: 'enterprises',
+        name: 'Enterprise Nodes',
+        icon: <Landmark size={20}/>,
+        description: 'Physical hubs, farms, and agro-processing centers.',
+        fields: [
+            { key: 'id', label: 'Node ID', required: true },
+            { key: 'name', label: 'Enterprise Name', required: true },
+            { key: 'ownerId', label: 'Owner PIN', required: true, hint: 'Must match a User PIN' },
+            { key: 'region', label: 'Region', required: true },
+            { key: 'lat', label: 'Latitude', required: true },
+            { key: 'lng', label: 'Longitude', required: true },
+            { key: 'tinkhundla', label: 'Tinkhundla', required: false }
+        ]
+    },
+    {
+        id: 'catalogue',
+        name: 'Master Catalogue',
+        icon: <Box size={20}/>,
+        description: 'Vetted list of inputs, chemicals, and standards.',
+        fields: [
+            { key: 'registrationId', label: 'Registry ID', required: true },
+            { key: 'tradeName', label: 'Product Name', required: true },
+            { key: 'manufacturerName', label: 'Manufacturer', required: true },
+            { key: 'division', label: 'Division', required: true },
+            { key: 'category', label: 'Category', required: true },
+            { key: 'unit', label: 'Unit', required: true }
+        ]
+    }
 ];
 
 const PERMISSIONS_MATRIX = [
@@ -65,84 +101,36 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     const [activeTab, setActiveTab] = useState('overview');
     
     const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
-    const [pendingProducts, setPendingProducts] = useState<SalesProduct[]>([]);
     const [catalogueItems, setCatalogueItems] = useState<CatalogueItem[]>([]);
     const [userSearch, setUserSearch] = useState('');
+    const [systemMetadata, setSystemMetadata] = useState<any>(null);
 
     const isNationalAdmin = currentUser?.role === UserRole.Government && currentUser?.region === 'All';
     const currentRegion = currentUser?.region;
-
-    const [snapshotData, setSnapshotData] = useState({
-        totalEnterprises: 0,
-        totalLibraryFiles: 15,
-        totalNotices: 12,
-        marketLiquidity: 0
-    });
-
-    const [systemMetadata, setSystemMetadata] = useState<any>(null);
 
     // Dropdown Management State
     const [selectedDropdownKey, setSelectedDropdownKey] = useState<string>('units');
     const [newOptionValue, setNewOptionValue] = useState('');
 
-    // Manual Item State
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [isSavingManual, setIsSavingManual] = useState(false);
-    const [manualItem, setManualItem] = useState<CatalogueItem>({
-        registrationId: '',
-        division: 'Consumables (Biological & Chemical)',
-        category: 'Chemicals',
-        subCategory: '',
-        productType: 'Standard',
-        tradeName: '',
-        size: '',
-        unit: 'kg',
-        manufacturerName: '',
-        manufacturerUrl: '',
-        productStandardDescription: '',
-        productStandardUrl: '',
-        description: '',
-        availableDistrict: 'National',
-        availableRDA: 'All',
-        availableConstituency: 'All',
-        availableRegNo: '',
-        status: 'Vetted',
-        image: ''
-    });
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setManualItem(prev => ({ ...prev, image: reader.result as string }));
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+    // Data Hub State
+    const [selectedSchema, setSelectedSchema] = useState(DATA_SCHEMAS[0]);
+    const [showDataHubModal, setShowDataHubModal] = useState(false);
+    const [hubCsvHeaders, setHubCsvHeaders] = useState<string[]>([]);
+    const [hubCsvDataRows, setHubCsvDataRows] = useState<string[][]>([]);
+    const [hubFieldMap, setHubFieldMap] = useState<Record<string, string>>({});
+    const [isProcessingHub, setIsProcessingHub] = useState(false);
 
     const loadData = async () => {
-        const [meta, users, pending, catalogue, market] = await Promise.all([
+        const [meta, users, catalogue] = await Promise.all([
             Get_System_Metadata(),
             View_All_System_Users(),
-            View_Items_Awaiting_Approval(),
-            View_Master_Catalogue(),
-            View_Trading_Catalogue_Items()
+            View_Master_Catalogue()
         ]);
         
         setSystemMetadata(meta);
         const filteredUsers = isNationalAdmin ? users : users.filter(u => u.region === currentRegion);
         setAllUsers(filteredUsers);
-        
-        const filteredMarket = isNationalAdmin ? market : market.filter(p => p.region === currentRegion as any);
         setCatalogueItems(catalogue);
-
-        const marketVal = filteredMarket.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-        setSnapshotData(prev => ({
-            ...prev,
-            totalEnterprises: isNationalAdmin ? 150 : 35,
-            marketLiquidity: marketVal
-        }));
     };
 
     useEffect(() => {
@@ -150,28 +138,72 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     }, [activeTab, currentUser, isNationalAdmin, currentRegion]);
 
     const [catalogueSearch, setCatalogueSearch] = useState('');
-    const [showMappingModal, setShowMappingModal] = useState(false);
-    const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-    const [csvDataRows, setCsvDataRows] = useState<string[][]>([]);
-    const [fieldMap, setFieldMap] = useState<Record<string, string>>({});
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleBulkDelete = async () => {
-        if (!window.confirm(`Delete ${selectedItemIds.length} registry entries? This action is irreversible.`)) return;
-        const updated = await Bulk_Delete_From_Catalogue(selectedItemIds);
-        setCatalogueItems(updated);
-        setSelectedItemIds([]);
+    // --- Action Handlers ---
+
+    // Fix for Error in file components/AdminModule.tsx on line 404 & 406: Cannot find name 'handleUserStatusChange'.
+    const handleUserStatusChange = async (userId: string, status: string) => {
+        await updateUserStatus(userId, status);
+        await loadData();
     };
 
+    // Fix for Error in file components/AdminModule.tsx on line 484: Cannot find name 'handleBulkApprove'.
     const handleBulkApprove = async () => {
-        if (!window.confirm(`Approve/Vet ${selectedItemIds.length} registry entries?`)) return;
-        const updated = await Bulk_Update_Catalogue_Status(selectedItemIds, 'Vetted');
-        setCatalogueItems(updated);
+        if (selectedItemIds.length === 0) return;
+        await Bulk_Update_Catalogue_Status(selectedItemIds, 'Vetted');
         setSelectedItemIds([]);
+        await loadData();
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Fix for Error in file components/AdminModule.tsx on line 485: Cannot find name 'handleBulkDelete'.
+    const handleBulkDelete = async () => {
+        if (selectedItemIds.length === 0) return;
+        if (window.confirm(`Delete ${selectedItemIds.length} items from the master catalogue?`)) {
+            await Bulk_Delete_From_Catalogue(selectedItemIds);
+            setSelectedItemIds([]);
+            await loadData();
+        }
+    };
+
+    // Fix for Error in file components/AdminModule.tsx on line 527 & 549: Cannot find name 'handleUpdateDropdownOption'.
+    const handleUpdateDropdownOption = async (deleteValue?: string) => {
+        const currentList = [...(systemMetadata[selectedDropdownKey] || [])];
+        let newList;
+        
+        if (deleteValue) {
+            newList = currentList.filter(item => {
+                const val = typeof item === 'string' ? item : (item as any).id;
+                return val !== deleteValue;
+            });
+        } else {
+            if (!newOptionValue.trim()) return;
+            if (currentList.some(item => (typeof item === 'string' ? item : (item as any).name) === newOptionValue.trim())) {
+                alert("Option already exists.");
+                return;
+            }
+            newList = [...currentList, newOptionValue.trim()];
+        }
+
+        const updated = await Update_System_Metadata(selectedDropdownKey, newList);
+        setSystemMetadata(updated);
+        setNewOptionValue('');
+    };
+
+    // --- DATA HUB LOGIC ---
+
+    const downloadTemplate = (schema: typeof DATA_SCHEMAS[0]) => {
+        const headers = schema.fields.map(f => f.label).join(',');
+        const blob = new Blob([headers], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AIIS_Template_${schema.id}.csv`;
+        a.click();
+    };
+
+    const handleHubFileUpload = (e: React.ChangeEvent<HTMLInputElement>, schema: typeof DATA_SCHEMAS[0]) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
@@ -181,118 +213,196 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             if (lines.length > 0) {
                 const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
                 const rows = lines.slice(1).map(l => l.split(',').map(c => c.trim().replace(/^"|"$/g, '')));
-                setCsvHeaders(headers);
-                setCsvDataRows(rows);
+                setHubCsvHeaders(headers);
+                setHubCsvDataRows(rows);
                 
-                // Smart Mapping
+                // Auto-map
                 const initialMap: Record<string, string> = {};
-                MAPPABLE_FIELDS.forEach(f => {
+                schema.fields.forEach(f => {
                     const match = headers.find(h => h.toLowerCase() === f.label.toLowerCase() || h.toLowerCase() === f.key.toLowerCase());
                     if (match) initialMap[f.key] = match;
                 });
-                setFieldMap(initialMap);
-                setShowMappingModal(true);
+                setHubFieldMap(initialMap);
+                setShowDataHubModal(true);
             }
         };
         reader.readAsText(file);
     };
 
-    const finalizeImport = async () => {
-        const items: CatalogueItem[] = csvDataRows.map((row, idx) => {
-            const getVal = (k: string) => row[csvHeaders.indexOf(fieldMap[k])] || '';
-            return {
-                registrationId: getVal('registrationId') || `SZ-REG-${Date.now()}-${idx}`,
-                division: getVal('division') || 'Consumables (Biological & Chemical)',
-                category: getVal('category') || 'General',
-                subCategory: getVal('subCategory') || 'N/A',
-                productType: getVal('productType') || 'Standard',
-                tradeName: getVal('tradeName') || 'Untitled',
-                size: getVal('size'),
-                unit: getVal('unit') || 'Unit',
-                manufacturerName: getVal('manufacturerName') || 'Unknown',
-                manufacturerUrl: getVal('manufacturerUrl'),
-                productStandardDescription: getVal('productStandardDescription') || 'Standard Registry',
-                productStandardUrl: getVal('productStandardUrl'),
-                description: getVal('description') || 'Bulk Imported',
-                availableDistrict: 'National', availableRDA: 'All', availableConstituency: 'All', availableRegNo: 'REG-BULK',
-                status: 'Pending'
-            };
-        });
-        const updated = await Add_To_Master_Catalogue(items);
-        setCatalogueItems(updated);
-        setShowMappingModal(false);
-    };
-
-    const handleSaveManualItem = async () => {
-        if (!manualItem.tradeName || !manualItem.manufacturerName) return;
-        setIsSavingManual(true);
-        const itemToSave = { 
-            ...manualItem, 
-            registrationId: manualItem.registrationId || `SZ-REG-${Date.now()}` 
-        };
-        const updated = await Add_To_Master_Catalogue([itemToSave]);
-        setCatalogueItems(updated);
-        setIsSavingManual(false);
-        setShowAddModal(false);
-        setManualItem({
-            registrationId: '',
-            division: 'Consumables (Biological & Chemical)',
-            category: 'Chemicals',
-            subCategory: '',
-            productType: 'Standard',
-            tradeName: '',
-            size: '',
-            unit: 'kg',
-            manufacturerName: '',
-            manufacturerUrl: '',
-            productStandardDescription: '',
-            productStandardUrl: '',
-            description: '',
-            availableDistrict: 'National',
-            availableRDA: 'All',
-            availableConstituency: 'All',
-            availableRegNo: '',
-            status: 'Vetted',
-            image: ''
-        });
-    };
-
-    const handleUserStatusChange = async (userId: string, newStatus: 'Active' | 'Suspended' | 'Pending Approval') => {
-        if (userId === 'ADMIN') return alert("Cannot modify system superuser status.");
-        const success = await updateUserStatus(userId, newStatus);
-        if (success) {
-            alert(`User status successfully updated to ${newStatus}.`);
+    const finalizeHubImport = async () => {
+        setIsProcessingHub(true);
+        try {
+            if (selectedSchema.id === 'users') {
+                const users: UserProfile[] = hubCsvDataRows.map(row => {
+                    const get = (k: string) => row[hubCsvHeaders.indexOf(hubFieldMap[k])] || '';
+                    return {
+                        id: get('id'),
+                        name: get('name'),
+                        email: get('email'),
+                        role: get('role') as UserRole,
+                        actorType: get('actorType') as ActorType,
+                        region: get('region'),
+                        status: (get('status') as any) || 'Active',
+                        dateRegistered: new Date().toISOString().split('T')[0]
+                    };
+                });
+                for (const u of users) await Register_New_User(u);
+            } else if (selectedSchema.id === 'catalogue') {
+                const items: CatalogueItem[] = hubCsvDataRows.map(row => {
+                    const get = (k: string) => row[hubCsvHeaders.indexOf(hubFieldMap[k])] || '';
+                    return {
+                        registrationId: get('registrationId'),
+                        tradeName: get('tradeName'),
+                        manufacturerName: get('manufacturerName'),
+                        division: get('division'),
+                        category: get('category'),
+                        unit: get('unit'),
+                        description: 'Bulk Imported',
+                        status: 'Vetted',
+                        subCategory: '', productType: 'Standard', availableDistrict: 'National', availableRDA: 'All', availableConstituency: 'All', availableRegNo: ''
+                    };
+                });
+                await Add_To_Master_Catalogue(items);
+            } else if (selectedSchema.id === 'enterprises') {
+                const ents = hubCsvDataRows.map(row => {
+                    const get = (k: string) => row[hubCsvHeaders.indexOf(hubFieldMap[k])] || '';
+                    return {
+                        id: get('id'),
+                        name: get('name'),
+                        ownerId: get('ownerId'),
+                        region: get('region'),
+                        gps: { lat: parseFloat(get('lat')), lng: parseFloat(get('lng')) },
+                        tinkhundla: get('tinkhundla'),
+                        units: [], resources: [], processes: [], operations: [], usageLogs: []
+                    };
+                });
+                for (const e of ents) await db.insert(DbTable.Enterprises, e);
+            }
+            alert("Data Synchronization Complete.");
+            setShowDataHubModal(false);
             loadData();
+        } catch (error) {
+            alert("Sync Failed: Relationship or format error.");
         }
+        setIsProcessingHub(false);
     };
 
-    const handleUpdateDropdownOption = async (removeValue?: string) => {
-        if (!removeValue && !newOptionValue.trim()) return;
-        
-        let currentOptions = systemMetadata[selectedDropdownKey];
-        if (!Array.isArray(currentOptions)) return;
+    // --- COMPONENT RENDERS ---
 
-        let updatedOptions: any[];
-        if (removeValue) {
-            updatedOptions = currentOptions.filter(o => {
-                if (typeof o === 'string') return o !== removeValue;
-                if (o.id) return o.id !== removeValue;
-                return true;
-            });
-        } else {
-            if (currentOptions.includes(newOptionValue.trim())) return alert("Option already exists.");
-            updatedOptions = [...currentOptions, newOptionValue.trim()];
-        }
+    const renderDataHub = () => (
+        <div className="space-y-6 animate-fade-in flex flex-col h-[calc(100vh-200px)]">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6 shrink-0">
+                <div className="flex items-center gap-4">
+                    <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl"><Network size={28}/></div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">National Data Architecture</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Bulk Repository Population Hub</p>
+                    </div>
+                </div>
+                <div className="flex gap-2">
+                    <div className="px-5 py-3 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-3">
+                        <BadgeCheck size={16}/>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Validation Active</span>
+                    </div>
+                </div>
+            </div>
 
-        const updatedMeta = await Update_System_Metadata(selectedDropdownKey, updatedOptions);
-        setSystemMetadata(updatedMeta);
-        setNewOptionValue('');
-    };
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto no-scrollbar pb-10">
+                {DATA_SCHEMAS.map(schema => (
+                    <div key={schema.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group flex flex-col h-[400px]">
+                        <div className="flex justify-between items-start mb-6">
+                            <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                {schema.icon}
+                            </div>
+                            <button 
+                                onClick={() => downloadTemplate(schema)}
+                                className="p-3 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                                title="Download Template"
+                            >
+                                <Download size={20}/>
+                            </button>
+                        </div>
+                        <h4 className="text-lg font-black text-slate-800 mb-2">{schema.name}</h4>
+                        <p className="text-xs text-slate-500 font-medium mb-6 leading-relaxed">{schema.description}</p>
+                        
+                        <div className="flex-1 space-y-3 mb-8">
+                            <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Required Schema</p>
+                            <div className="flex flex-wrap gap-2">
+                                {schema.fields.map(f => (
+                                    <span key={f.key} className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-tighter ${f.required ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-slate-50 text-slate-400'}`}>
+                                        {f.label}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
 
-    const filteredCatalogue = catalogueItems.filter(item => {
-        const matchesSearch = item.tradeName.toLowerCase().includes(catalogueSearch.toLowerCase()) || item.registrationId.toLowerCase().includes(catalogueSearch.toLowerCase());
-        return matchesSearch;
-    });
+                        <div className="relative mt-auto">
+                            <input 
+                                type="file" 
+                                className="absolute inset-0 opacity-0 cursor-pointer" 
+                                accept=".csv" 
+                                onChange={(e) => { setSelectedSchema(schema); handleHubFileUpload(e, schema); }}
+                            />
+                            <button className="w-full py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center justify-center gap-3 transition-all active:scale-95">
+                                <DatabaseZap size={16} className="text-[#FBBF24]"/> Upload Node Data
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {showDataHubModal && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-8 animate-fade-in">
+                    <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                        <div className="bg-[#1B4D3E] p-10 text-white flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-5">
+                                <div className="p-4 bg-white/10 rounded-2xl border border-white/10"><Table size={32} className="text-[#FBBF24]"/></div>
+                                <div>
+                                    <h3 className="text-2xl font-black uppercase tracking-tight">Synchronize {selectedSchema.name}</h3>
+                                    <p className="text-green-300 text-[10px] font-bold uppercase tracking-widest mt-1">Institutional Parameter Alignment</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowDataHubModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={32}/></button>
+                        </div>
+                        <div className="p-10 flex-1 overflow-y-auto no-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-8">
+                                {selectedSchema.fields.map(field => (
+                                    <div key={field.key} className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{field.label} {field.required && <span className="text-rose-500">*</span>}</label>
+                                            {field.hint && <span className="text-[8px] font-bold text-indigo-400 italic">{field.hint}</span>}
+                                        </div>
+                                        <div className="relative">
+                                            <select 
+                                                value={hubFieldMap[field.key] || ''} 
+                                                onChange={(e) => setHubFieldMap({ ...hubFieldMap, [field.key]: e.target.value })} 
+                                                className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-xs outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all appearance-none cursor-pointer"
+                                            >
+                                                <option value="">-- Do Not Import --</option>
+                                                {hubCsvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
+                                            </select>
+                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={14} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="p-10 bg-slate-50 border-t border-slate-100 flex justify-end gap-4 shrink-0">
+                            <button onClick={() => setShowDataHubModal(false)} className="px-10 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition-colors">Discard Batch</button>
+                            <button 
+                                onClick={finalizeHubImport} 
+                                disabled={isProcessingHub}
+                                className="px-16 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:bg-emerald-950 transition-all flex items-center justify-center gap-4 disabled:opacity-50"
+                            >
+                                {isProcessingHub ? <Loader2 size={18} className="animate-spin" /> : <HardDriveDownload size={18} className="text-[#FBBF24]" />}
+                                {isProcessingHub ? 'Committing Nodes...' : 'Initialize National Sync'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
     const renderRegistry = () => (
         <div className="space-y-2 animate-fade-in flex flex-col h-[calc(100vh-200px)]">
@@ -365,11 +475,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
                     <input type="text" placeholder="Filter Catalogue..." value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)} className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border-none rounded-lg font-bold text-[10px] outline-none" />
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={() => setShowAddModal(true)} className="px-3 py-1.5 bg-[#FBBF24] text-[#1B4D3E] rounded-lg text-[8px] font-black uppercase flex items-center gap-2 hover:bg-yellow-400 transition-colors"><Plus size={10}/> New Registry Entry</button>
-                    <button onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 bg-[#1B4D3E] text-white rounded-lg text-[8px] font-black uppercase flex items-center gap-2"><FileUp size={10}/> Import</button>
-                </div>
-                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
             </div>
 
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-x-auto overflow-y-auto no-scrollbar relative">
@@ -377,7 +482,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-widest sticky top-0 z-10">
                         <tr>
                             <th className="p-4 w-10 sticky left-0 bg-[#1B4D3E] z-20">
-                                <input type="checkbox" onChange={(e) => setSelectedItemIds(e.target.checked ? filteredCatalogue.map(i => i.registrationId) : [])} className="rounded accent-[#FBBF24]"/>
+                                <input type="checkbox" onChange={(e) => setSelectedItemIds(e.target.checked ? catalogueItems.map(i => i.registrationId) : [])} className="rounded accent-[#FBBF24]"/>
                             </th>
                             <th className="p-4 sticky left-10 bg-[#1B4D3E] z-20">Reg ID</th>
                             <th className="p-4">Division</th>
@@ -390,7 +495,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {filteredCatalogue.map(item => (
+                        {catalogueItems.filter(i => i.tradeName.toLowerCase().includes(catalogueSearch.toLowerCase())).map(item => (
                             <tr key={item.registrationId} className="hover:bg-slate-50 transition-colors group">
                                 <td className="p-3 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
                                     <input type="checkbox" checked={selectedItemIds.includes(item.registrationId)} onChange={() => setSelectedItemIds(prev => prev.includes(item.registrationId) ? prev.filter(i => i !== item.registrationId) : [...prev, item.registrationId])} className="rounded accent-[#1B4D3E]"/>
@@ -435,44 +540,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         </div>
     );
 
-    const renderPermissions = () => (
-        <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fade-in flex flex-col h-[calc(100vh-200px)]">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-[#1B4D3E] rounded-xl text-[#FBBF24]"><LockKeyhole size={20}/></div>
-                    <div>
-                        <h3 className="text-sm font-black text-[#1B4D3E] uppercase tracking-tight">Institutional Access Matrix</h3>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Component Permission Scoping by Persona</p>
-                    </div>
-                </div>
-            </div>
-            <div className="flex-1 overflow-auto no-scrollbar">
-                <table className="w-full text-left border-collapse min-w-[800px]">
-                    <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-[0.2em] sticky top-0 z-10">
-                        <tr>
-                            <th className="p-6">Module Cluster</th>
-                            <th className="p-6 text-center border-l border-white/5">Public Guest</th>
-                            <th className="p-6 text-center border-l border-white/5">Primary Farmer</th>
-                            <th className="p-6 text-center border-l border-white/5">Extension Officer</th>
-                            <th className="p-6 text-center border-l border-white/5">Gov Supervisor</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {PERMISSIONS_MATRIX.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 transition-colors group">
-                                <td className="p-6 font-black text-slate-700 text-xs bg-slate-50/30 border-r border-slate-100 group-hover:bg-indigo-50/50 group-hover:text-indigo-900 transition-colors">{row.component}</td>
-                                <td className="p-6 text-center text-slate-400 font-medium italic text-[10px]">{row.guest}</td>
-                                <td className="p-6 text-center text-emerald-700 font-black text-[10px]">{row.farmer}</td>
-                                <td className="p-6 text-center text-amber-700 font-bold text-[10px]">{row.extension}</td>
-                                <td className="p-6 text-center text-[#1B4D3E] font-black text-[11px] underline decoration-emerald-200 decoration-2 underline-offset-4">{row.government}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-
     const renderDropdowns = () => (
         <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fade-in flex flex-col h-[calc(100vh-200px)]">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between gap-4">
@@ -490,7 +557,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         onChange={(e) => setSelectedDropdownKey(e.target.value)}
                         className="p-2 bg-white border border-slate-200 rounded-lg font-bold text-[10px] outline-none focus:ring-2 focus:ring-[#1B4D3E]/10 transition-all uppercase"
                     >
-                        {Object.keys(systemMetadata).filter(k => Array.isArray(systemMetadata[k])).map(key => (
+                        {Object.keys(systemMetadata || {}).filter(k => Array.isArray(systemMetadata[k])).map(key => (
                             <option key={key} value={key}>{key.replace(/([A-Z])/g, ' $1').trim()}</option>
                         ))}
                     </select>
@@ -498,10 +565,9 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             </div>
             
             <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
-                {/* Left: Management List */}
                 <div className="flex-1 overflow-y-auto p-6 border-r border-slate-100 no-scrollbar">
                     <div className="space-y-2">
-                        {systemMetadata[selectedDropdownKey]?.map((option: any, i: number) => {
+                        {systemMetadata?.[selectedDropdownKey]?.map((option: any, i: number) => {
                             const label = typeof option === 'string' ? option : (option.name || option.id || JSON.stringify(option));
                             const value = typeof option === 'string' ? option : option.id;
                             return (
@@ -516,16 +582,8 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                                 </div>
                             );
                         })}
-                        {(!systemMetadata[selectedDropdownKey] || systemMetadata[selectedDropdownKey].length === 0) && (
-                            <div className="py-20 text-center text-slate-300">
-                                <ListTree size={48} className="mx-auto mb-4 opacity-20"/>
-                                <p className="text-xs font-black uppercase tracking-widest">No options defined in this node.</p>
-                            </div>
-                        )}
                     </div>
                 </div>
-
-                {/* Right: Add Form */}
                 <div className="w-full lg:w-80 bg-slate-50/50 p-8 shrink-0">
                     <div className="space-y-6 sticky top-0">
                         <div className="space-y-1.5">
@@ -544,13 +602,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         >
                             <Plus size={16}/> Add to Global Node
                         </button>
-                        <div className="p-5 bg-amber-50 rounded-2xl border border-amber-100 space-y-2">
-                            <div className="flex items-center gap-2 text-amber-700">
-                                <AlertCircle size={14}/>
-                                <span className="text-[10px] font-black uppercase tracking-tight">Institutional Warning</span>
-                            </div>
-                            <p className="text-[10px] text-amber-800 font-medium leading-relaxed">Changes to global metadata affect all registered user forms instantly. Ensure policy alignment before committing.</p>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -571,8 +622,8 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         { id: 'overview', label: 'Dash', icon: <LayoutDashboard size={10}/> },
                         { id: 'users', label: 'Nodes', icon: <Users size={10}/> },
                         { id: 'catalogue', label: 'Master', icon: <Box size={10}/> },
-                        { id: 'permissions', label: 'Matrix', icon: <LockKeyhole size={10}/> },
-                        { id: 'dropdowns', label: 'Dropdowns', icon: <ListFilter size={10}/> }
+                        { id: 'datahub', label: 'Data Hub', icon: <DatabaseZap size={10}/> },
+                        { id: 'dropdowns', label: 'Metadata', icon: <ListFilter size={10}/> }
                     ].map(tab => (
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab.id ? 'bg-[#1B4D3E] text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50'}`}>{tab.icon} {tab.label}</button>
                     ))}
@@ -590,121 +641,9 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                 )}
                 {activeTab === 'users' && renderRegistry()}
                 {activeTab === 'catalogue' && renderCatalogue()}
-                {activeTab === 'permissions' && renderPermissions()}
+                {activeTab === 'datahub' && renderDataHub()}
                 {activeTab === 'dropdowns' && renderDropdowns()}
             </div>
-
-            {/* Manual Add Catalogue Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
-                    <div className="bg-white w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/10 rounded-xl border border-white/10"><Plus size={24} className="text-[#FBBF24]"/></div>
-                                <div><h3 className="text-xl font-black uppercase tracking-tight">Vetted Registry Entry</h3><p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">National Master Infrastructure</p></div>
-                            </div>
-                            <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={24}/></button>
-                        </div>
-                        
-                        <div className="p-8 space-y-6 overflow-y-auto no-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                                <div className="space-y-6">
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trade Name *</label><input value={manualItem.tradeName} onChange={(e) => setManualItem({...manualItem, tradeName: e.target.value})} placeholder="Official Product Name..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-[#1B4D3E]/5" /></div>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Reg ID (Auto-gen if empty)</label><input value={manualItem.registrationId} onChange={(e) => setManualItem({...manualItem, registrationId: e.target.value})} placeholder="SZ-REG-XXXX" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-black text-indigo-600 text-sm outline-none" /></div>
-                                    
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Infrastructure Division</label>
-                                        <select value={manualItem.division} onChange={(e) => setManualItem({...manualItem, division: e.target.value, category: systemMetadata.categoriesByDivision[e.target.value][0]})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
-                                            {systemMetadata.divisions.map((d: string) => <option key={d} value={d}>{d}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Functional Category</label>
-                                        <select value={manualItem.category} onChange={(e) => setManualItem({...manualItem, category: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
-                                            {systemMetadata.categoriesByDivision[manualItem.division]?.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Subcategory Name</label><input value={manualItem.subCategory} onChange={(e) => setManualItem({...manualItem, subCategory: e.target.value})} placeholder="e.g. Basal NPK..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Reference Visual</label>
-                                        <div className="aspect-video bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group">
-                                            {manualItem.image ? (
-                                                <>
-                                                    <img src={manualItem.image} className="w-full h-full object-cover" />
-                                                    <button onClick={() => setManualItem(prev => ({ ...prev, image: '' }))} className="absolute top-4 right-4 p-2 bg-rose-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"><X size={16}/></button>
-                                                </>
-                                            ) : (
-                                                <div className="text-center p-6">
-                                                    <div className="w-12 h-12 bg-white rounded-[1.2rem] flex items-center justify-center mx-auto shadow-sm mb-3"><Camera size={20} className="text-slate-300"/></div>
-                                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Attach Official Packaging</p>
-                                                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageUpload} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Manufacturer Name *</label><input value={manualItem.manufacturerName} onChange={(e) => setManualItem({...manualItem, manufacturerName: e.target.value})} placeholder="Entity Name..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Standard Description</label><input value={manualItem.productStandardDescription} onChange={(e) => setManualItem({...manualItem, productStandardDescription: e.target.value})} placeholder="e.g. ISO 9001..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Size</label><input value={manualItem.size} onChange={(e) => setManualItem({...manualItem, size: e.target.value})} placeholder="50, 1..." className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit</label>
-                                            <select value={manualItem.unit} onChange={(e) => setManualItem({...manualItem, unit: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
-                                                {systemMetadata.units.map((u: string) => <option key={u} value={u}>{u}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-                            <button onClick={() => setShowAddModal(false)} className="px-8 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition-colors">Cancel</button>
-                            <button onClick={handleSaveManualItem} disabled={isSavingManual || !manualItem.tradeName || !manualItem.manufacturerName} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center gap-3 disabled:opacity-50">
-                                {isSavingManual ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Commit to Master Registry
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Bulk Mapping Modal */}
-            {showMappingModal && (
-                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-8 animate-fade-in">
-                    <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-                        <div className="bg-indigo-900 p-10 text-white flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-5">
-                                <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Table size={32} className="text-[#FBBF24]"/></div>
-                                <div><h3 className="text-2xl font-black uppercase tracking-tight">Optimize Parameter Mapping</h3><p className="text-indigo-300 text-[10px] font-bold uppercase tracking-widest mt-1">National Registry Batch Sync</p></div>
-                            </div>
-                            <button onClick={() => setShowMappingModal(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={32}/></button>
-                        </div>
-                        <div className="p-10 flex-1 overflow-y-auto no-scrollbar space-y-10">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                                {MAPPABLE_FIELDS.map(field => (
-                                    <div key={field.key} className="flex items-center gap-4 group">
-                                        <div className="w-[160px] shrink-0 text-right"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{field.label}</label></div>
-                                        <div className="flex-1 relative">
-                                            <select value={fieldMap[field.key] || ''} onChange={(e) => setFieldMap({ ...fieldMap, [field.key]: e.target.value })} className="w-full px-5 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 transition-all appearance-none cursor-pointer">
-                                                <option value="">-- Do Not Import --</option>
-                                                {csvHeaders.map(h => <option key={h} value={h}>{h}</option>)}
-                                            </select>
-                                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={14} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="p-10 bg-slate-50 border-t border-slate-100 flex justify-end gap-4 shrink-0">
-                            <button onClick={() => setShowMappingModal(false)} className="px-10 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition-colors">Discard Batch</button>
-                            <button onClick={finalizeImport} className="px-16 py-4 bg-indigo-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl hover:bg-indigo-950 transition-all flex items-center justify-center gap-4">Initialize Data Synchronization <ArrowRight size={18} /></button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
