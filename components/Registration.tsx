@@ -6,7 +6,6 @@ import {
   Briefcase, Sparkles, Wand2, RefreshCw, Factory, ShoppingCart, MessageSquareText,
   Activity, ArrowRight, Info, Eye, Mail, Info as InfoIcon, Globe, Fingerprint,
   Users as UsersIcon,
-  // Add missing icon
   ChevronDown
 } from 'lucide-react';
 import { Region, ActorType, TINKHUNDLA, EntityType, UserRole, UserProfile, RDAs } from '../types';
@@ -60,6 +59,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
     gender: 'Male',
     dob: '',
     idNumber: '',
+    chiefCode: '',
     phone: '',
     email: '',
     country: 'Eswatini',
@@ -77,7 +77,6 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
             View_All_System_Users()
         ]);
         setSystemMetadata(meta);
-        // Filter users who are NOT individuals for the institution selection
         const insts = users.filter(u => u.entityType !== EntityType.Person);
         setExistingInstitutions(insts);
     };
@@ -112,7 +111,8 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                           lastName: extracted.lastName || prev.lastName,
                           idNumber: extracted.idNumber || prev.idNumber,
                           dob: extracted.dob || prev.dob,
-                          gender: extracted.gender || prev.gender
+                          gender: extracted.gender || prev.gender,
+                          chiefCode: extracted.chiefCode || prev.chiefCode
                       }));
                       setStep(2);
                   }
@@ -153,6 +153,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
         gender: formData.gender,
         organization: formData.organizationName,
         organizationId: formData.organizationId,
+        chiefCode: formData.chiefCode,
         dateRegistered: new Date().toISOString().split('T')[0]
     };
     await Register_New_User(newUser);
@@ -196,23 +197,6 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
 
                   {step === 1 && (
                       <div className="space-y-6 animate-fade-in">
-                          <div className="space-y-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Identity Intake (AI Assist)</label>
-                              <div className="border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center relative group hover:border-[#1B4D3E]/30 transition-all bg-slate-50/50">
-                                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
-                                  {isExtracting ? (
-                                      <div className="flex flex-col items-center gap-3">
-                                          <Loader2 className="animate-spin text-[#FBBF24]" size={32}/>
-                                          <p className="text-xs font-black text-[#1B4D3E] uppercase">Digital Extraction Active...</p>
-                                      </div>
-                                  ) : (
-                                      <div className="space-y-4">
-                                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto text-slate-300 group-hover:text-[#1B4D3E] transition-colors shadow-sm"><Upload size={24}/></div>
-                                          <p className="text-xs font-bold text-slate-400">Scan National ID to Auto-Fill</p>
-                                      </div>
-                                  )}
-                              </div>
-                          </div>
                           <div className="space-y-4">
                               <div className="space-y-1.5">
                                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">System Role (Persona)</label>
@@ -240,6 +224,25 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                                   </select>
                               </div>
                           </div>
+
+                          <div className="space-y-2">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Identity Intake (AI Assist)</label>
+                              <div className="border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center relative group hover:border-[#1B4D3E]/30 transition-all bg-slate-50/50">
+                                  <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileChange} />
+                                  {isExtracting ? (
+                                      <div className="flex flex-col items-center gap-3">
+                                          <Loader2 className="animate-spin text-[#FBBF24]" size={32}/>
+                                          <p className="text-xs font-black text-[#1B4D3E] uppercase">Digital Extraction Active...</p>
+                                      </div>
+                                  ) : (
+                                      <div className="space-y-4">
+                                          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center mx-auto text-slate-300 group-hover:text-[#1B4D3E] transition-colors shadow-sm"><Upload size={24}/></div>
+                                          <p className="text-xs font-bold text-slate-400">Scan National ID to Auto-Fill</p>
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+
                           <button onClick={nextStep} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-[#143d31] active:scale-95 transition-all">Continue to Personal Profile</button>
                       </div>
                   )}
@@ -256,11 +259,20 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                                   <input name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Last Name" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white" />
                               </div>
                           </div>
-                          <div className="space-y-1">
-                              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">National ID (PIN)</label>
-                              <div className="relative">
-                                <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
-                                <input name="idNumber" value={formData.idNumber} onChange={handleChange} placeholder="Enter PIN" className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-black text-sm outline-none text-[#1B4D3E] focus:bg-white" />
+                          <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">National ID (PIN)</label>
+                                  <div className="relative">
+                                    <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
+                                    <input name="idNumber" value={formData.idNumber} onChange={handleChange} placeholder="Enter PIN" className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-black text-sm outline-none text-[#1B4D3E] focus:bg-white" />
+                                  </div>
+                              </div>
+                              <div className="space-y-1">
+                                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Chief Code</label>
+                                  <div className="relative">
+                                    <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
+                                    <input name="chiefCode" value={formData.chiefCode} onChange={handleChange} placeholder="Chief Code" className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-black text-sm outline-none text-[#1B4D3E] focus:bg-white" />
+                                  </div>
                               </div>
                           </div>
                           <div className="grid grid-cols-2 gap-4">

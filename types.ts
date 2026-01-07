@@ -58,7 +58,7 @@ export interface Resource {
     name: string;
     unitNumber: string;
     category: string;
-    unitCost: number;
+    unitCost: number; // This is the hourly rate or unit rate
     quantity: number;
     threshold?: number;
     totalUsageHours?: number;
@@ -67,6 +67,9 @@ export interface Resource {
     details?: string;
     catalogueRef?: string;
     linkedUserId?: string;
+    productionDate?: string;
+    expiryDate?: string;
+    initialValue?: number; // Total purchase cost
 }
 
 export interface UserProfile {
@@ -93,6 +96,7 @@ export interface UserProfile {
   functionalRole?: string;
   country?: string;
   rda?: string;
+  chiefCode?: string; // Chief Code from ID
   affiliations?: string[];
 }
 
@@ -154,6 +158,7 @@ export interface CatalogueItem {
   availableDistrict: string;
   availableRDA: string;
   availableConstituency: string;
+  availableDiptank?: string;
   availableRegNo: string;
   status?: string;
   image?: string;

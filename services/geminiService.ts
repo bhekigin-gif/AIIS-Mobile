@@ -2,9 +2,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { StatData, Region, ChatMessage, CatalogueItem, ActorType, Operation, SalesProduct, UserProfile } from "../types";
 
+// Selection of gemini-3-flash-preview for basic analysis
 const MODEL_NAME = 'gemini-3-flash-preview';
-const VISION_MODEL_NAME = 'gemini-3-pro-image-preview';
-const MAPS_COMPATIBLE_MODEL = 'gemini-2.5-flash';
+// Selection of gemini-3-pro-preview for expert diagnostic advisory
+const EXPERT_MODEL_NAME = 'gemini-3-pro-preview';
 
 // Analysis of production and market data for dashboard summary
 export const getDashboardAnalysis = async (
@@ -45,7 +46,8 @@ export const chatWithAgriBot = async (
 ): Promise<{ text: string; groundingMetadata?: any }> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const selectedModel = attachment ? VISION_MODEL_NAME : MODEL_NAME;
+    // Use gemini-3-pro-preview for advanced advisory chat especially with multimodal input
+    const selectedModel = attachment ? EXPERT_MODEL_NAME : MODEL_NAME;
     const chat = ai.chats.create({
       model: selectedModel,
       config: { systemInstruction: "You are the AIIS Eswatini Expert. Localized, professional, and technical." }
@@ -53,8 +55,7 @@ export const chatWithAgriBot = async (
     const parts: any[] = [{ text: message }];
     if (attachment) parts.push({ inlineData: attachment });
     
-    // FIX: sendMessage expects 'message' to be string | Part | Part[]
-    // Passing the array directly to correctly handle multi-part messages
+    // Using sendMessage with message parameter containing parts for multi-modal context
     const result = await chat.sendMessage({ message: parts });
     return { text: result.text || "...", groundingMetadata: result.candidates?.[0]?.groundingMetadata };
   } catch (error) { return { text: "Connection issues." }; }
@@ -65,11 +66,12 @@ export const extractPersonalDetailsFromID = async (base64Image: string, mimeType
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `EXTRACT DATA FROM ESWATINI ID:
-    Find: First Name, Last Name, ID Number (PIN), Date of Birth, Gender.
+    Find: First Name, Last Name, ID Number (PIN), Date of Birth, Gender, Chief Code (Alpha-numeric code usually found on Eswatini ID cards).
     Ignore background artifacts. Return strictly valid JSON.`;
     
+    // Using gemini-3-flash-preview for multi-modal text extraction tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', 
+      model: MODEL_NAME, 
       contents: {
         parts: [{ inlineData: { mimeType: mimeType, data: base64Image } }, { text: prompt }]
       },
@@ -83,13 +85,14 @@ export const extractPersonalDetailsFromID = async (base64Image: string, mimeType
             gender: { type: Type.STRING },
             dob: { type: Type.STRING },
             idNumber: { type: Type.STRING },
+            chiefCode: { type: Type.STRING },
           },
           required: ['firstName', 'lastName', 'idNumber']
         }
       }
     });
     const text = response.text || "{}";
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
+    return JSON.parse(text.trim());
   } catch (error) { 
     console.error("Extraction error:", error);
     return null; 

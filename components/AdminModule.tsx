@@ -40,7 +40,7 @@ interface AdminModuleProps {
     currentUser: UserProfile | null;
 }
 
-// Full 13-field Entity Template for Data Hub
+// Full Schema for Data Hub including the 16 Master Catalogue fields
 const DATA_SCHEMAS = [
     {
         id: 'users',
@@ -82,14 +82,24 @@ const DATA_SCHEMAS = [
         id: 'catalogue',
         name: 'Master Catalogue',
         icon: <Box size={20}/>,
-        description: 'Vetted list of inputs, chemicals, and standards.',
+        description: 'National Vetted Registry for inputs, standards, and spatial availability.',
         fields: [
-            { key: 'registrationId', label: 'Registry ID', required: true },
-            { key: 'tradeName', label: 'Product Name', required: true },
-            { key: 'manufacturerName', label: 'Manufacturer', required: true },
+            { key: 'registrationId', label: 'ID', required: true },
             { key: 'division', label: 'Division', required: true },
             { key: 'category', label: 'Category', required: true },
-            { key: 'unit', label: 'Unit', required: true }
+            { key: 'subCategory', label: 'Subcategory name', required: true },
+            { key: 'productType', label: 'Product type', required: true },
+            { key: 'tradeName', label: 'Trade name', required: true },
+            { key: 'size', label: 'Size', required: false },
+            { key: 'unit', label: 'Unit', required: true },
+            { key: 'manufacturerName', label: 'Manufacturer name', required: true },
+            { key: 'productStandardDescription', label: 'Product Standard Description', required: true },
+            { key: 'productStandardUrl', label: 'URL', required: false },
+            { key: 'status', label: 'Status', required: true, default: 'Vetted' },
+            { key: 'availableDistrict', label: 'Available Region', required: true },
+            { key: 'availableRDA', label: 'Available RDA', required: true },
+            { key: 'availableConstituency', label: 'Available Constituency', required: true },
+            { key: 'availableDiptank', label: 'Available Diptank Area', required: false }
         ]
     }
 ];
@@ -271,14 +281,23 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     const get = (k: string) => row[hubCsvHeaders.indexOf(hubFieldMap[k])] || '';
                     return {
                         registrationId: get('registrationId'),
-                        tradeName: get('tradeName'),
-                        manufacturerName: get('manufacturerName'),
                         division: get('division'),
                         category: get('category'),
+                        subCategory: get('subCategory'),
+                        productType: get('productType'),
+                        tradeName: get('tradeName'),
+                        size: get('size'),
                         unit: get('unit'),
+                        manufacturerName: get('manufacturerName'),
+                        productStandardDescription: get('productStandardDescription'),
+                        productStandardUrl: get('productStandardUrl'),
+                        status: get('status') || 'Vetted',
+                        availableDistrict: get('availableDistrict'),
+                        availableRDA: get('availableRDA'),
+                        availableConstituency: get('availableConstituency'),
+                        availableDiptank: get('availableDiptank'),
                         description: 'Bulk Imported',
-                        status: 'Vetted',
-                        subCategory: '', productType: 'Standard', availableDistrict: 'National', availableRDA: 'All', availableConstituency: 'All', availableRegNo: ''
+                        availableRegNo: ''
                     };
                 });
                 await Add_To_Master_Catalogue(items);
@@ -344,7 +363,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         <h4 className="text-lg font-black text-slate-800 mb-2">{schema.name}</h4>
                         <p className="text-xs text-slate-500 font-medium mb-6 leading-relaxed">{schema.description}</p>
                         
-                        <div className="flex-1 space-y-3 mb-8">
+                        <div className="flex-1 space-y-3 mb-8 overflow-y-auto no-scrollbar">
                             <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Required Schema</p>
                             <div className="flex flex-wrap gap-2">
                                 {schema.fields.map(f => (
@@ -428,7 +447,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             <div className="bg-white p-2 rounded-xl border border-slate-100 flex items-center shrink-0">
                 <Search className="ml-2 text-slate-300" size={14} />
                 <input type="text" placeholder="Search registry by name or National ID..." value={userSearch} onChange={(e) => setUserSearch(e.target.value)} className="w-full px-2 py-1.5 bg-transparent font-bold text-[11px] outline-none" />
-                {!isNationalAdmin && <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[7px] font-black uppercase">{currentRegion} Region</span>}
+                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[7px] font-black uppercase">{isNationalAdmin ? 'National Scope (All Data)' : `${currentRegion} Region Scope`}</span>
             </div>
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-x-auto no-scrollbar">
                 <table className="w-full text-left border-collapse min-w-[1400px]">
@@ -513,49 +532,58 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             <div className="bg-white p-2 rounded-xl border border-slate-100 flex items-center gap-2 shrink-0">
                 <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} />
-                    <input type="text" placeholder="Filter Catalogue..." value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)} className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border-none rounded-lg font-bold text-[10px] outline-none" />
+                    <input type="text" placeholder="Filter National Master Catalogue..." value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)} className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border-none rounded-lg font-bold text-[10px] outline-none" />
                 </div>
             </div>
 
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-x-auto overflow-y-auto no-scrollbar relative">
-                <table className="w-full text-left border-collapse min-w-[1200px]">
+                <table className="w-full text-left border-collapse min-w-[1800px]">
                     <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-widest sticky top-0 z-10">
                         <tr>
                             <th className="p-4 w-10 sticky left-0 bg-[#1B4D3E] z-20">
                                 <input type="checkbox" onChange={(e) => setSelectedItemIds(e.target.checked ? catalogueItems.map(i => i.registrationId) : [])} className="rounded accent-[#FBBF24]"/>
                             </th>
-                            <th className="p-4 sticky left-10 bg-[#1B4D3E] z-20">Reg ID</th>
+                            <th className="p-4 sticky left-10 bg-[#1B4D3E] z-20">ID</th>
                             <th className="p-4">Division</th>
                             <th className="p-4">Category</th>
+                            <th className="p-4">Subcategory</th>
+                            <th className="p-4">Product Type</th>
                             <th className="p-4">Trade Name</th>
-                            <th className="p-4">Specs</th>
+                            <th className="p-4">Size/Unit</th>
                             <th className="p-4">Manufacturer</th>
-                            <th className="p-4">Standard</th>
+                            <th className="p-4">Standard Info</th>
+                            <th className="p-4">Region/RDA</th>
+                            <th className="p-4">Constituency/Diptank</th>
                             <th className="p-4 text-center">Status</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
-                        {catalogueItems.filter(i => i.tradeName.toLowerCase().includes(catalogueSearch.toLowerCase())).map(item => (
+                        {catalogueItems.filter(i => i.tradeName.toLowerCase().includes(catalogueSearch.toLowerCase()) || i.registrationId.toLowerCase().includes(catalogueSearch.toLowerCase())).map(item => (
                             <tr key={item.registrationId} className="hover:bg-slate-50 transition-colors group">
                                 <td className="p-3 sticky left-0 bg-white group-hover:bg-slate-50 z-10">
                                     <input type="checkbox" checked={selectedItemIds.includes(item.registrationId)} onChange={() => setSelectedItemIds(prev => prev.includes(item.registrationId) ? prev.filter(i => i !== item.registrationId) : [...prev, item.registrationId])} className="rounded accent-[#1B4D3E]"/>
                                 </td>
                                 <td className="p-3 font-mono text-[8px] font-black text-indigo-600 sticky left-10 bg-white group-hover:bg-slate-50 z-10">{item.registrationId}</td>
-                                <td className="p-3"><span className="px-2 py-0.5 bg-slate-100 rounded text-[7px] font-black text-slate-500 uppercase">{item.division}</span></td>
+                                <td className="p-3 text-[9px] font-black text-slate-500 uppercase">{item.division}</td>
                                 <td className="p-3 text-[9px] font-bold text-slate-600 uppercase">{item.category}</td>
-                                <td className="p-3"><p className="font-black text-slate-700 text-[10px]">{item.tradeName}</p><p className="text-[8px] text-slate-300 italic">{item.subCategory}</p></td>
-                                <td className="p-3 text-[9px] font-bold text-slate-500">{item.size} {item.unit} • {item.productType}</td>
+                                <td className="p-3 text-[9px] font-bold text-slate-400 uppercase">{item.subCategory}</td>
+                                <td className="p-3 text-[9px] font-bold text-slate-500">{item.productType}</td>
+                                <td className="p-3"><p className="font-black text-slate-700 text-[10px]">{item.tradeName}</p></td>
+                                <td className="p-3 text-[9px] font-bold text-slate-500">{item.size} {item.unit}</td>
+                                <td className="p-3"><span className="text-[10px] font-black text-slate-700">{item.manufacturerName}</span></td>
                                 <td className="p-3">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-[10px] font-black text-slate-700">{item.manufacturerName}</span>
-                                        {item.manufacturerUrl && <a href={item.manufacturerUrl} target="_blank" className="text-indigo-400 hover:text-indigo-600"><ExternalLink size={10}/></a>}
+                                    <div className="space-y-1">
+                                        <p className="text-[9px] font-bold text-emerald-600 truncate max-w-[150px]">{item.productStandardDescription}</p>
+                                        {item.productStandardUrl && <a href={item.productStandardUrl} target="_blank" className="text-emerald-400 hover:text-emerald-600 inline-flex items-center gap-1 text-[8px] font-black"><Link size={8}/> Standard URL</a>}
                                     </div>
                                 </td>
                                 <td className="p-3">
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-[10px] font-bold text-emerald-600">{item.productStandardDescription}</span>
-                                        {item.productStandardUrl && <a href={item.productStandardUrl} target="_blank" className="text-emerald-400 hover:text-emerald-600"><Link size={10}/></a>}
-                                    </div>
+                                    <p className="text-[9px] font-black text-[#1B4D3E] uppercase">{item.availableDistrict}</p>
+                                    <p className="text-[8px] text-slate-400 font-bold uppercase">{item.availableRDA} RDA</p>
+                                </td>
+                                <td className="p-3">
+                                    <p className="text-[9px] font-bold text-slate-600 uppercase">{item.availableConstituency}</p>
+                                    <p className="text-[8px] text-slate-300 font-black uppercase italic">{item.availableDiptank || 'National Scope'}</p>
                                 </td>
                                 <td className="p-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${item.status === 'Vetted' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{item.status}</span></td>
                             </tr>
