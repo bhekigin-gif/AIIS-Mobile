@@ -1,20 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import BottomNav from './components/BottomNav';
-import Dashboard from './components/Dashboard';
-import Registration from './components/Registration';
-import Marketplace from './components/Marketplace';
-import AIAdvisor from './components/AIAdvisor';
-import Production from './components/Production';
-import Login from './components/Login';
-import AdminModule from './components/AdminModule';
-import CapacityBuilding from './components/CapacityBuilding';
-import Information from './components/Information';
-import ProfileModal from './components/ProfileModal';
-import { SalesProduct, MarketCartItem, MarketOrder, UserRole, UserProfile } from './types';
-import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info } from 'lucide-react';
-import { Initialize_Database, View_Trading_Catalogue_Items } from './services/adminDataService';
+import Sidebar from './Sidebar';
+import BottomNav from './BottomNav';
+import Dashboard from './Dashboard';
+import Registration from './Registration';
+import Marketplace from './Marketplace';
+import AIAdvisor from './AIAdvisor';
+import Production from './Production';
+import Login from './Login';
+import AdminModule from './AdminModule';
+import CapacityBuilding from './CapacityBuilding';
+import Information from './Information';
+import ProfileModal from './ProfileModal';
+import { SalesProduct, MarketCartItem, MarketOrder, UserRole, UserProfile } from '../types';
+import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info, MapPinned, MessageSquareText } from 'lucide-react';
+import { Initialize_Database, View_Trading_Catalogue_Items } from '../services/adminDataService';
 
 const AccessDenied = ({ message }: { message: string }) => (
     <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white rounded-3xl border border-red-100 shadow-sm m-4">
@@ -37,7 +37,6 @@ const App: React.FC = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const isMobile = windowWidth < 768;
-  const isTablet = windowWidth >= 768 && windowWidth < 1024;
   const isDesktop = windowWidth >= 1024;
 
   useEffect(() => {
@@ -64,7 +63,6 @@ const App: React.FC = () => {
         setIsAIAdvisorOpen(true);
       } else { 
         setActiveTab(id); 
-        // On mobile/tablet, close the sidebar after selection
         if (windowWidth < 1024) {
           setIsSidebarCollapsed(true);
         }
@@ -77,29 +75,31 @@ const App: React.FC = () => {
     if (activeTab === 'registry') return <Registration onBackToLogin={() => setActiveTab('login')} onBackToHome={() => setActiveTab('dashboard')} />;
     
     switch (activeTab) {
-      case 'dashboard': return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
+      case 'dashboard': return <Dashboard user={user} onRegister={() => setActiveTab('registry')} onOpenAdvisor={() => setIsAIAdvisorOpen(true)} />;
       case 'market': return <Marketplace products={products} setProducts={setProducts} cart={marketCart} setCart={setMarketCart} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} user={user} />;
-      case 'production': return user?.role === UserRole.Farmer ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Farmers only." />;
-      case 'admin': return user?.role === UserRole.Government ? <AdminModule currentUser={user} /> : <AccessDenied message="Officials only." />;
+      case 'production': return (user?.role === UserRole.Farmer || user?.role === UserRole.Extension) ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Access restricted to Producers and Extension Officers." />;
+      case 'admin': return (user?.role === UserRole.Government || user?.role === UserRole.Extension) ? <AdminModule currentUser={user} /> : <AccessDenied message="Authorized Officials only." />;
       case 'capacity': return <CapacityBuilding />;
       case 'info': return <Information />;
-      default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
+      default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} onOpenAdvisor={() => setIsAIAdvisorOpen(true)} />;
     }
   };
 
   const commonNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20}/> },
     { id: 'market', label: 'Trade Hub', icon: <ShoppingCart size={20}/> },
+    { id: 'advisor', label: 'AI Advisor', icon: <MessageSquareText size={20}/> },
     { id: 'info', label: 'Information Centre', icon: <Info size={20}/> },
     { id: 'capacity', label: 'Capacity Building', icon: <BookOpen size={20}/> },
     ...(user?.role === UserRole.Farmer ? [{ id: 'production', label: 'Ops Manager', icon: <Factory size={20}/> }] : []),
-    ...(user?.role === UserRole.Government ? [{ id: 'admin', label: 'Oversight', icon: <Shield size={20}/> }] : [])
+    ...(user?.role === UserRole.Extension ? [{ id: 'production', label: 'Outreach Hub', icon: <Factory size={20}/> }] : []),
+    ...(user?.role === UserRole.Government ? [{ id: 'admin', label: 'Oversight', icon: <Shield size={20}/> }] : []),
+    ...(user?.role === UserRole.Extension ? [{ id: 'admin', label: 'Field Registry', icon: <Shield size={20}/> }] : [])
   ];
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 overflow-hidden font-sans">
       
-      {/* Sidebar - Permanent on Large Screens, Drawer on Mobile/Tablet */}
       <Sidebar 
         isCollapsed={isSidebarCollapsed} 
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
@@ -109,7 +109,7 @@ const App: React.FC = () => {
         navItems={commonNavItems} 
         activeTab={activeTab} 
         setActiveTab={handleNavClick} 
-        className={`${isDesktop ? 'relative' : 'fixed inset-y-0 left-0 transform transition-transform duration-300 z-[160]'} 
+        className={`${isDesktop ? 'relative' : 'fixed inset-y-0 left-0 transform transition-transform duration-300 z-[160] shadow-2xl'} 
                    ${!isDesktop && isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`}
       />
 
@@ -131,7 +131,10 @@ const App: React.FC = () => {
               </div>
               
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100 sm:pr-4">
+                <button 
+                  onClick={() => setIsProfileOpen(true)}
+                  className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100 sm:pr-4 hover:bg-slate-100 transition-colors"
+                >
                   <div className="w-8 h-8 rounded-xl bg-[#1B4D3E] flex items-center justify-center text-[10px] sm:text-[12px] font-black text-white">
                       {user?.name?.charAt(0) || 'G'}
                   </div>
@@ -139,7 +142,7 @@ const App: React.FC = () => {
                       <span className="text-[10px] font-black text-slate-800 uppercase tracking-tight truncate">{user?.name || 'Guest'}</span>
                       <span className="text-[8px] font-bold text-slate-400 uppercase truncate">{user?.actorType || 'Portal'}</span>
                   </div>
-                </div>
+                </button>
               </div>
           </header>
 
@@ -149,13 +152,11 @@ const App: React.FC = () => {
               </div>
           </div>
 
-          {/* Bottom Navigation only for mobile views */}
           {isMobile && (
             <BottomNav activeTab={activeTab} setActiveTab={handleNavClick} user={user} onMoreClick={() => setIsSidebarCollapsed(false)} toggleAI={() => setIsAIAdvisorOpen(true)} />
           )}
       </main>
 
-      {/* AI Advisor side panel */}
       <div className={`fixed inset-y-0 right-0 z-[170] w-full sm:w-[480px] bg-white shadow-[-20px_0_80px_rgba(0,0,0,0.1)] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${isAIAdvisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="h-full flex flex-col">
             <div className="p-5 sm:p-6 bg-[#1B4D3E] text-white flex justify-between items-center shrink-0">
@@ -170,11 +171,12 @@ const App: React.FC = () => {
                 </div>
                 <button onClick={() => setIsAIAdvisorOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all text-white/60 hover:text-white"><X size={20} /></button>
             </div>
-            <div className="flex-1 overflow-hidden"><AIAdvisor /></div>
+            <div className="flex-1 overflow-hidden">
+                <AIAdvisor currentUser={user} />
+            </div>
         </div>
       </div>
 
-      {/* Profile Modal */}
       {isProfileOpen && user && (
         <ProfileModal 
             user={user} 
@@ -183,7 +185,6 @@ const App: React.FC = () => {
         />
       )}
       
-      {/* Mobile/Tablet Backdrop for Sidebar Drawer */}
       {!isSidebarCollapsed && !isDesktop && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[155] animate-fade-in" onClick={() => setIsSidebarCollapsed(true)} />
       )}

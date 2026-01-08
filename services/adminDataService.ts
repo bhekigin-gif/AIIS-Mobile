@@ -60,6 +60,7 @@ const ESSENTIAL_USERS: UserProfile[] = [
 
 const INITIAL_CATALOGUE: CatalogueItem[] = [
     { 
+        id: 'CAT-001', // Satisfy DatabaseService constraints by including id
         registrationId: 'CAT-001', 
         division: 'Consumables (Biological & Chemical)', 
         category: 'Chemicals', 
@@ -125,6 +126,10 @@ export const Register_New_User = async (user: UserProfile) => {
     return db.insert(Table.Users, user);
 };
 
+export const Bulk_Register_Users = async (users: UserProfile[]) => {
+    return db.bulkInsert(Table.Users, users);
+};
+
 export const updateUserStatus = async (id: string, status: string) => {
     return db.update<UserProfile>(Table.Users, id, { status: status as any });
 };
@@ -152,9 +157,17 @@ export const View_Master_Catalogue = () => db.getAll<CatalogueItem>(Table.Catalo
 
 export const Add_To_Master_Catalogue = async (items: CatalogueItem[]) => {
     const current = await db.getAll<CatalogueItem>(Table.Catalogue);
-    const updated = [...items, ...current];
+    // Ensure items have an id property to match DatabaseService assumptions
+    const itemsWithId = items.map(item => ({ ...item, id: item.registrationId }));
+    const updated = [...itemsWithId, ...current];
     await db.saveAll(Table.Catalogue, updated);
     return updated;
+};
+
+// Fix: items must satisfy the { id?: string | number } constraint of bulkInsert
+export const Bulk_Add_To_Catalogue = async (items: CatalogueItem[]) => {
+    const itemsWithId = items.map(item => ({ ...item, id: item.registrationId }));
+    return db.bulkInsert(Table.Catalogue, itemsWithId);
 };
 
 export const Delete_From_Master_Catalogue = async (id: string) => {

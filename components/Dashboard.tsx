@@ -7,7 +7,8 @@ import {
 import { 
   Activity, TrendingUp, AlertTriangle, ChevronRight, 
   Bot, Loader2, Cloud, CloudRain, CloudLightning, Sun, MapPin,
-  Sprout, Landmark, Info, Sparkles, Send, X
+  Sprout, Landmark, Info, Sparkles, Send, X, MessageSquareText,
+  Headset, PhoneCall
 } from 'lucide-react';
 import { getDashboardAnalysis, getWeatherAlert, chatWithAgriBot, getWeatherForecast } from '../services/geminiService';
 import { ChatMessage, UserProfile, UserRole } from '../types';
@@ -15,6 +16,7 @@ import { ChatMessage, UserProfile, UserRole } from '../types';
 interface DashboardProps {
     user: UserProfile | null;
     onRegister?: () => void;
+    onOpenAdvisor?: () => void;
 }
 
 const productionData = [
@@ -34,7 +36,7 @@ const priceTrends = [
   { month: 'Jun', maize: 140, beans: 205 },
 ];
 
-const Dashboard: React.FC<DashboardProps> = ({ user, onRegister }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }) => {
   const [weatherData, setWeatherData] = useState<string>("Analyzing current weather data...");
   const [aiAnalysis, setAiAnalysis] = useState<string>("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -46,7 +48,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister }) => {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const isRegionalScope = user?.role === UserRole.Extension || (user?.role === UserRole.Government && user?.region && user?.region !== 'All');
+  const isExtension = user?.role === UserRole.Extension;
+  const isRegionalScope = isExtension || (user?.role === UserRole.Government && user?.region && user?.region !== 'All');
 
   const weatherStyles = useMemo(() => {
     const low = weatherData.toLowerCase();
@@ -95,17 +98,36 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister }) => {
           </h2>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Kingdom of Eswatini • National Feed</p>
         </div>
-        <button onClick={() => setShowLiveChat(true)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:border-[#1B4D3E] transition-all">
-          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-          Ministry Support
-        </button>
+        <div className="flex gap-2">
+            {isExtension && (
+              <button onClick={onOpenAdvisor} className="flex items-center gap-2 px-3 py-1.5 bg-[#1B4D3E] text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-900 transition-all group">
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                <Headset size={14} className="text-[#FBBF24] group-hover:rotate-12 transition-transform" />
+                Live Inbox
+              </button>
+            )}
+            <button onClick={() => setShowLiveChat(true)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:border-[#1B4D3E] transition-all">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              Ministry Support
+            </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-emerald-50 text-[#1B4D3E] rounded-xl"><Activity size={20} /></div>
-          <div><p className="text-[9px] text-slate-400 font-black uppercase">Yield Aggregate</p><h3 className="text-lg font-black text-slate-800">{isRegionalScope ? '4.2k' : '18.8k'} <span className="text-[10px] text-slate-300">Tons</span></h3></div>
-        </div>
+        {isExtension ? (
+            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 shadow-sm flex items-center gap-4 group cursor-pointer hover:bg-amber-100 transition-all" onClick={onOpenAdvisor}>
+                <div className="p-3 bg-amber-100 text-amber-700 rounded-xl group-hover:scale-110 transition-transform"><PhoneCall size={20} className="animate-bounce" /></div>
+                <div>
+                    <p className="text-[9px] text-amber-800 font-black uppercase">Advisory Queue</p>
+                    <h3 className="text-lg font-black text-amber-900">2 <span className="text-[10px] font-bold">Waiting</span></h3>
+                </div>
+            </div>
+        ) : (
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+                <div className="p-3 bg-emerald-50 text-[#1B4D3E] rounded-xl"><Activity size={20} /></div>
+                <div><p className="text-[9px] text-slate-400 font-black uppercase">Yield Aggregate</p><h3 className="text-lg font-black text-slate-800">{isRegionalScope ? '4.2k' : '18.8k'} <span className="text-[10px] text-slate-300">Tons</span></h3></div>
+            </div>
+        )}
         <div className={`p-4 rounded-2xl border shadow-sm flex items-center gap-3 ${weatherStyles.bg}`}>
           <div className={`p-3 rounded-xl ${weatherStyles.iconBg}`}>{weatherStyles.icon}</div>
           <div className="flex-1 overflow-hidden">

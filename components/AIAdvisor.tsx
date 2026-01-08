@@ -4,12 +4,17 @@ import {
   Send, Bot, User, Loader2, Sparkles, MapPin, Paperclip, X, 
   Image as ImageIcon, Film, Mic, Languages, Camera, ScanText, 
   HeartPulse, Bug, Sprout, Globe, ShieldCheck, AlertCircle, 
-  ChevronRight, Stethoscope, Beaker
+  ChevronRight, Stethoscope, Beaker, Headset, UserCheck, 
+  MessageSquareShare, PhoneCall, Zap, ClipboardList, Activity
 } from 'lucide-react';
 import { chatWithAgriBot } from '../services/geminiService';
-import { ChatMessage } from '../types';
+import { ChatMessage, UserRole, ActorType, UserProfile } from '../types';
 
-const AIAdvisor: React.FC = () => {
+interface AIAdvisorProps {
+    currentUser: UserProfile | null;
+}
+
+const AIAdvisor: React.FC<AIAdvisorProps> = ({ currentUser }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: 'model', text: 'Sanibonani! I am your AIIS Agricultural Expert. I can help you diagnose crop diseases, find local suppliers, or explain national policies. How can I assist you today?', timestamp: new Date() }
   ]);
@@ -17,11 +22,18 @@ const AIAdvisor: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<{file: File, preview: string, type: 'image' | 'video'} | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [voiceLang, setVoiceLang] = useState<'en-US' | 'ss-SZ'>('en-US');
+  
+  // Live Support Handover State
+  const [liveMode, setLiveMode] = useState<'ai' | 'requesting' | 'extension'>('ai');
+  const [connectedOfficer, setConnectedOfficer] = useState<string | null>(null);
+  const [incomingRequests, setIncomingRequests] = useState<{id: string, name: string, region: string, problemSummary?: string[]}[]>([]);
+  const [isOfficerOnline, setIsOfficerOnline] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const isExtension = currentUser?.role === UserRole.Extension;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,7 +41,55 @@ const AIAdvisor: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, selectedFile]);
+  }, [messages, selectedFile, liveMode, incomingRequests]);
+
+  // Simulation: Extension Officers see "Requests" from their region
+  useEffect(() => {
+    if (isExtension && liveMode === 'ai' && isOfficerOnline) {
+        const timer = setTimeout(() => {
+            setIncomingRequests([{ 
+              id: 'REQ-01', 
+              name: 'Musa Dlamini', 
+              region: currentUser.region || 'Manzini',
+              problemSummary: ['Suspected Maize Chlorotic Mottle Virus', 'Location: Sidvokodvo Unit 4', 'Crop Age: 6 Weeks']
+            }]);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }
+  }, [isExtension, liveMode, isOfficerOnline]);
+
+  const handleRequestExpert = () => {
+    setLiveMode('requesting');
+    setMessages(prev => [...prev, {
+        role: 'model',
+        text: `[SYSTEM] Synchronizing your regional GIS data with the National Extension Node for ${currentUser?.region || 'National'} coverage. An officer will be with you shortly.`,
+        timestamp: new Date()
+    }]);
+
+    // Simulate officer pickup
+    setTimeout(() => {
+        setLiveMode('extension');
+        setConnectedOfficer('Officer Ethan Khumalo');
+        setMessages(prev => [...prev, {
+            role: 'extension',
+            text: 'Sawubona! This is Officer Khumalo from your Regional RDA. I see you are inquiring about pest control. How can I help with your specific plot?',
+            timestamp: new Date(),
+            senderName: 'Officer Ethan Khumalo'
+        }]);
+    }, 4000);
+  };
+
+  const handleAcceptRequest = (reqId: string) => {
+    setLiveMode('extension');
+    setConnectedOfficer(currentUser?.name || 'Extension Officer');
+    setIncomingRequests([]);
+    setMessages(prev => [...prev, {
+        role: 'extension',
+        text: `Officer ${currentUser?.name} from ${currentUser?.region} Regional Hub has joined the secure node.`,
+        timestamp: new Date(),
+        senderName: currentUser?.name
+    }]);
+  };
 
   const fileToGenerativePart = async (file: File): Promise<{ mimeType: string; data: string }> => {
     return new Promise((resolve, reject) => {
@@ -52,167 +112,143 @@ const AIAdvisor: React.FC = () => {
           if (isImage || isVideo) {
               const previewUrl = URL.createObjectURL(file);
               setSelectedFile({ file, preview: previewUrl, type: isImage ? 'image' : 'video' });
-          } else {
-              alert("Please select a valid image or video file.");
           }
       }
-  };
-
-  const clearFile = () => {
-      if (selectedFile) { URL.revokeObjectURL(selectedFile.preview); setSelectedFile(null); }
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
-  };
-
-  const handleVoiceInput = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Voice input not supported in this browser.");
-    const recognition = new SpeechRecognition();
-    recognition.lang = voiceLang;
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onresult = (event: any) => setInput(prev => prev + (prev ? ' ' : '') + event.results[0][0].transcript);
-    recognition.start();
   };
 
   const handleSend = async (overrideText?: string) => {
     const messageText = overrideText || input;
     if (!messageText.trim() && !selectedFile) return;
 
-    let attachmentData = null;
-    if (selectedFile) {
-        try {
-            attachmentData = await fileToGenerativePart(selectedFile.file);
-        } catch (error) {
-            alert("Failed to process file.");
-            return;
-        }
-    }
-
-    let processedInput = messageText;
-    if (selectedFile?.type === 'image' && !messageText.trim()) {
-        processedInput = "I need an urgent [CROP HEALTH REPORT] for this image. Diagnose pests, diseases, or deficiencies and recommend Eswatini-safe remediation.";
-    }
-
     const userMsg: ChatMessage = { 
         role: 'user', 
-        text: messageText || (selectedFile?.type === 'image' ? "Sent an image for crop diagnosis" : "Sent a video"), 
+        text: messageText || (selectedFile?.type === 'image' ? "Diagnostic input" : "Video input"), 
         timestamp: new Date(),
-        attachment: attachmentData ? { mimeType: attachmentData.mimeType, data: attachmentData.data } : undefined
+        senderName: currentUser?.name
     };
 
-    const uiMsg = { ...userMsg, uiPreview: selectedFile?.preview, uiType: selectedFile?.type };
-
-    setMessages(prev => [...prev, uiMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
-    clearFile();
+    
+    // If connected to human extension, skip AI call
+    if (liveMode === 'extension') {
+        setTimeout(() => {
+            if (!isExtension) {
+                // Mock extension response if farmer sent message
+                setMessages(prev => [...prev, {
+                    role: 'extension',
+                    text: 'Understood. I am cross-referencing your GIS unit Soil History from the National Registry now.',
+                    timestamp: new Date(),
+                    senderName: connectedOfficer || 'Officer'
+                }]);
+            }
+        }, 1500);
+        return;
+    }
+
     setIsLoading(true);
-
-    const history = messages.map(m => ({ role: m.role, text: m.text, timestamp: m.timestamp }));
-    const response = await chatWithAgriBot(processedInput, attachmentData, history);
+    let attachmentData = null;
+    if (selectedFile) {
+        try { attachmentData = await fileToGenerativePart(selectedFile.file); } catch (e) {}
+    }
     
-    const botMsg: ChatMessage = { 
-        role: 'model', 
-        text: response.text, 
-        timestamp: new Date(),
-        groundingMetadata: response.groundingMetadata
-    };
-    setMessages(prev => [...prev, botMsg]);
+    const history = messages.filter(m => m.role !== 'extension').map(m => ({ role: m.role, text: m.text, timestamp: m.timestamp }));
+    const response = await chatWithAgriBot(messageText, attachmentData, history as any);
+    
+    setMessages(prev => [...prev, { role: 'model', text: response.text, timestamp: new Date(), groundingMetadata: response.groundingMetadata }]);
     setIsLoading(false);
-  };
-
-  const renderDiagnosticReport = (text: string) => {
-    if (!text.includes('[CROP HEALTH REPORT]')) return <p className="whitespace-pre-wrap font-medium">{text}</p>;
-
-    const sections = text.split('\n- ').filter(s => s.trim() !== '');
-    const title = sections[0].replace('[CROP HEALTH REPORT]', '').trim();
-    
-    return (
-        <div className="space-y-4 animate-fade-in">
-            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shadow-sm"><Stethoscope size={20}/></div>
-                <div><h4 className="font-black text-slate-800 text-sm leading-tight uppercase tracking-tight">Diagnostic Analysis</h4><p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Eswatini AIIS Pathology Node</p></div>
-            </div>
-            <div className="space-y-3">
-                {sections.slice(1).map((section, idx) => {
-                    const [label, content] = section.split(': ');
-                    const isStatus = label.includes('STATUS');
-                    const isCritical = content?.includes('Critical') || content?.includes('Warning');
-                    
-                    return (
-                        <div key={idx} className={`p-3 rounded-xl border ${isStatus ? (isCritical ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100') : 'bg-slate-50 border-slate-100'}`}>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
-                            <p className={`text-xs font-bold ${isStatus ? (isCritical ? 'text-rose-700' : 'text-emerald-700') : 'text-slate-700'}`}>{content || 'Inconclusive'}</p>
-                        </div>
-                    );
-                })}
-            </div>
-            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-3">
-                <Beaker size={16} className="text-indigo-600 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-indigo-800 font-medium leading-relaxed italic">Note: AI diagnosis is for advisory purposes. Verify chemical applications with your Regional RDA Extension Officer.</p>
-            </div>
-        </div>
-    );
-  };
-
-  const renderSources = (metadata: any) => {
-      if (!metadata?.groundingChunks) return null;
-      const sources = metadata.groundingChunks.flatMap((c: any) => c.maps ? [c.maps] : (c.web ? [c.web] : []));
-      if (sources.length === 0) return null;
-      return (
-          <div className="mt-3 pt-3 border-t border-slate-200/50">
-              <p className="text-[10px] font-black text-slate-400 mb-2 flex items-center gap-1 uppercase tracking-widest">
-                  <MapPin size={10} className="text-[#FBBF24]" /> Grounding Sources:
-              </p>
-              <div className="flex flex-wrap gap-2">
-                  {sources.map((source: any, i: number) => (
-                      <a key={i} href={source.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] bg-slate-50 border border-slate-100 text-[#1B4D3E] px-2.5 py-1.5 rounded-lg hover:bg-white transition-all flex items-center gap-1.5 shadow-sm max-w-[200px] truncate font-bold" title={source.title}>
-                          <Globe size={10} /> {source.title || "Reference Link"}
-                      </a>
-                  ))}
-              </div>
-          </div>
-      );
+    setSelectedFile(null);
   };
 
   return (
     <div className="h-full flex flex-col bg-white overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50 no-scrollbar">
-        {messages.length === 1 && (
-            <div className="space-y-4 animate-fade-in pt-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">AI Integrated Pathology</p>
-                <div className="grid grid-cols-1 gap-3">
-                    <button onClick={() => cameraInputRef.current?.click()} className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-emerald-500/30 transition-all text-left group">
-                        <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform"><Bug size={24}/></div>
-                        <div><h4 className="font-black text-slate-800 text-sm">Pathogen Diagnosis</h4><p className="text-[10px] text-slate-400 font-medium">Take a photo to identify pests/blight.</p></div>
-                    </button>
-                    <button onClick={() => cameraInputRef.current?.click()} className="flex items-center gap-4 p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:border-amber-500/30 transition-all text-left group">
-                        <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform"><HeartPulse size={24}/></div>
-                        <div><h4 className="font-black text-slate-800 text-sm">Soil & Nutrient Check</h4><p className="text-[10px] text-slate-400 font-medium">Analyze leaf discoloration for health.</p></div>
-                    </button>
-                </div>
-            </div>
-        )}
+      {/* Dynamic Header for Support Status */}
+      <div className={`px-4 py-2 flex items-center justify-between border-b shrink-0 ${liveMode === 'extension' ? 'bg-blue-50 border-blue-100' : 'bg-slate-50 border-slate-100'}`}>
+          <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${liveMode === 'extension' ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'}`}></div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  {liveMode === 'extension' ? `Connected: ${connectedOfficer}` : 'AI Intelligence Active'}
+              </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {isExtension && (
+              <button 
+                onClick={() => setIsOfficerOnline(!isOfficerOnline)}
+                className={`px-2 py-1 rounded-md text-[8px] font-black uppercase transition-all ${isOfficerOnline ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}
+              >
+                {isOfficerOnline ? 'Online' : 'Offline'}
+              </button>
+            )}
+            {(!isExtension && liveMode === 'ai') && (
+                <button 
+                  onClick={handleRequestExpert}
+                  className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm hover:border-blue-400 transition-all"
+                >
+                    <Headset size={12} className="text-blue-500"/> Connect Extension
+                </button>
+            )}
+          </div>
+      </div>
 
+      {/* Extension Officer Task Panel */}
+      {isExtension && incomingRequests.length > 0 && (
+          <div className="p-4 bg-amber-50 border-b border-amber-100 animate-slide-up shrink-0 shadow-inner">
+              <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                          <div className="p-2 bg-amber-100 text-amber-700 rounded-xl"><PhoneCall size={18} className="animate-pulse"/></div>
+                          <div>
+                              <p className="text-[10px] font-black text-amber-900 uppercase tracking-tight">Active Advisory Request</p>
+                              <p className="text-xs font-bold text-amber-700">{incomingRequests[0].name} • {incomingRequests[0].region}</p>
+                          </div>
+                      </div>
+                      <button 
+                        onClick={() => handleAcceptRequest(incomingRequests[0].id)}
+                        className="px-6 py-2 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-700 shadow-lg active:scale-95 transition-all"
+                      >
+                          Accept Advisory
+                      </button>
+                  </div>
+                  {incomingRequests[0].problemSummary && (
+                    <div className="p-3 bg-white/60 rounded-xl border border-amber-200/50 space-y-1">
+                        <p className="text-[8px] font-black text-amber-800 uppercase tracking-widest flex items-center gap-1"><Sparkles size={10}/> AI Context Summary:</p>
+                        {incomingRequests[0].problemSummary.map((s, i) => (
+                          <p key={i} className="text-[10px] font-bold text-amber-700 flex items-center gap-2">
+                             <div className="w-1 h-1 bg-amber-400 rounded-full"/> {s}
+                          </p>
+                        ))}
+                    </div>
+                  )}
+              </div>
+          </div>
+      )}
+
+      {/* Session Controls for active live chat */}
+      {isExtension && liveMode === 'extension' && (
+          <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                  <Activity size={14} className="text-indigo-500 animate-pulse"/>
+                  <span className="text-[9px] font-black text-indigo-700 uppercase tracking-widest">Active Live Support Session</span>
+              </div>
+              <button 
+                onClick={() => alert("Redirecting to Outreach Hub to log this session...")}
+                className="flex items-center gap-1.5 px-2 py-1 bg-indigo-600 text-white rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm hover:bg-indigo-700"
+              >
+                  <ClipboardList size={10}/> Log Outreach
+              </button>
+          </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50 no-scrollbar">
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-sm ${msg.role === 'user' ? 'bg-slate-700 text-white' : 'bg-[#1B4D3E] text-[#FBBF24]'}`}>
-                {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-sm ${msg.role === 'user' ? 'bg-slate-700 text-white' : msg.role === 'extension' ? 'bg-blue-600 text-white' : 'bg-[#1B4D3E] text-[#FBBF24]'}`}>
+                {msg.role === 'user' ? <User size={16} /> : msg.role === 'extension' ? <UserCheck size={16}/> : <Bot size={16} />}
             </div>
-            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-slate-700 text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'}`}>
-                {(msg as any).uiPreview && (
-                    <div className="mb-3 mt-1 rounded-xl overflow-hidden border-2 border-white/20 shadow-md relative group">
-                        <img src={(msg as any).uiPreview} alt="Diagnostic input" className="max-w-full max-h-72 object-cover" />
-                        {isLoading && idx === messages.length - 1 && (
-                            <div className="absolute inset-0 bg-emerald-500/20 pointer-events-none">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 shadow-[0_0_15px_#10b981] animate-scan-line"></div>
-                            </div>
-                        )}
-                    </div>
-                )}
-                {renderDiagnosticReport(msg.text)}
-                {msg.role === 'model' && renderSources(msg.groundingMetadata)}
-                <span className={`text-[9px] mt-2 block font-black uppercase tracking-widest ${msg.role === 'user' ? 'text-slate-400' : 'text-slate-300'}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-slate-700 text-white rounded-tr-none' : msg.role === 'extension' ? 'bg-blue-100 text-blue-900 border border-blue-200 rounded-tl-none font-medium' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'}`}>
+                {msg.senderName && <p className="text-[8px] font-black uppercase tracking-widest mb-1 opacity-50">{msg.senderName}</p>}
+                <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
+                <span className={`text-[9px] mt-2 block font-black uppercase tracking-widest opacity-40`}>
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
             </div>
@@ -220,15 +256,10 @@ const AIAdvisor: React.FC = () => {
         ))}
         {isLoading && (
              <div className="flex gap-3">
-                <div className="w-8 h-8 bg-[#1B4D3E] text-[#FBBF24] rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-sm"><Bot size={16} /></div>
-                <div className="bg-white border border-slate-100 px-5 py-4 rounded-2xl rounded-tl-none shadow-sm flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                        <Loader2 size={16} className="animate-spin text-[#1B4D3E]" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pathology Processing...</span>
-                    </div>
-                    <div className="h-1 w-32 bg-slate-50 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 animate-progress-indefinite"></div>
-                    </div>
+                <div className="w-8 h-8 bg-[#1B4D3E] text-[#FBBF24] rounded-full flex items-center justify-center shrink-0 mt-1 shadow-sm"><Bot size={16} /></div>
+                <div className="bg-white px-5 py-4 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-3">
+                    <Loader2 size={16} className="animate-spin text-[#1B4D3E]" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase">Consulting National Nodes...</span>
                 </div>
              </div>
         )}
@@ -236,47 +267,24 @@ const AIAdvisor: React.FC = () => {
       </div>
 
       <div className="p-4 bg-white border-t border-slate-100 pb-10 sm:pb-6 relative z-10">
-        {selectedFile && (
-            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-between w-fit animate-slide-up shadow-sm">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-white overflow-hidden flex items-center justify-center shadow-inner border border-emerald-100 relative">
-                        {selectedFile.type === 'image' ? <img src={selectedFile.preview} className="w-full h-full object-cover" /> : <Film size={20} className="text-emerald-500" />}
-                        <div className="absolute inset-0 bg-emerald-500/10 pointer-events-none"></div>
-                    </div>
-                    <div>
-                        <p className="text-xs font-black text-emerald-900 truncate max-w-[150px]">{selectedFile.file.name}</p>
-                        <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-widest">Diagnostic Sample Ready</p>
-                    </div>
-                </div>
-                <button onClick={clearFile} className="p-1.5 hover:bg-emerald-100 rounded-full text-emerald-700 ml-3 transition-colors"><X size={18} /></button>
-            </div>
-        )}
-
         <div className="flex gap-2 relative items-end">
             <div className="flex flex-col gap-2">
-                <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*,video/*" className="hidden" />
-                <input type="file" ref={cameraInputRef} onChange={handleFileSelect} accept="image/*" capture="environment" className="hidden" />
-                <div className="flex gap-1.5 bg-slate-50 p-1 rounded-2xl border border-slate-100">
-                    <button onClick={() => cameraInputRef.current?.click()} className="p-3 bg-white text-emerald-600 rounded-xl hover:bg-emerald-50 transition-all shadow-sm border border-slate-100"><Camera size={20} /></button>
-                    <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-white text-slate-400 rounded-xl hover:bg-slate-100 transition-all"><Paperclip size={20} /></button>
-                </div>
+                <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-slate-100 transition-all border border-slate-100"><Paperclip size={20} /></button>
             </div>
             <div className="flex-1 relative">
-                <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} placeholder="Describe crop symptoms..." rows={1} className="w-full pl-4 pr-12 py-3.5 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-600 focus:bg-white transition-all outline-none text-sm text-slate-900 font-bold resize-none min-h-[52px]" />
-                <div className="absolute right-2 bottom-2 flex gap-1 items-center">
-                    <button onClick={handleVoiceInput} className={`p-2 rounded-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-slate-300 hover:text-slate-600'}`}><Mic size={18} /></button>
-                    <button onClick={() => handleSend()} disabled={isLoading || (!input.trim() && !selectedFile)} className="p-2.5 bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 disabled:opacity-30 shadow-lg transition-all active:scale-95"><Send size={18} /></button>
-                </div>
+                <textarea 
+                  value={input} 
+                  onChange={(e) => setInput(e.target.value)} 
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())} 
+                  placeholder={liveMode === 'extension' ? "Type advisory to farmer..." : "Ask the AIIS Expert..."} 
+                  rows={1} 
+                  className="w-full pl-4 pr-12 py-3.5 bg-slate-50 border border-slate-100 rounded-[1.5rem] focus:ring-4 focus:ring-emerald-500/5 transition-all outline-none text-sm font-bold resize-none min-h-[52px]" 
+                />
+                <button onClick={() => handleSend()} disabled={isLoading || (!input.trim() && !selectedFile)} className="absolute right-2 bottom-2 p-2.5 bg-emerald-800 text-white rounded-xl hover:bg-emerald-900 disabled:opacity-30 shadow-lg"><Send size={18} /></button>
             </div>
         </div>
       </div>
-      
-      <style>{`
-        @keyframes progress-indefinite { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-        @keyframes scan-line { 0% { top: 0%; } 100% { top: 100%; } }
-        .animate-progress-indefinite { animation: progress-indefinite 1.5s infinite linear; }
-        .animate-scan-line { animation: scan-line 2s infinite ease-in-out; }
-      `}</style>
     </div>
   );
 };

@@ -28,8 +28,13 @@ class DatabaseService {
 
     // Retrieve all records for a given table
     async getAll<T>(table: Table): Promise<T[]> {
-        const data = localStorage.getItem(this.getKey(table));
-        return data ? JSON.parse(data) : [];
+        try {
+            const data = localStorage.getItem(this.getKey(table));
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            console.error("DB Read Error:", e);
+            return [];
+        }
     }
 
     // Retrieve a single record by its ID
@@ -40,8 +45,15 @@ class DatabaseService {
 
     // Overwrite all records in a table
     async saveAll<T>(table: Table, items: T[]): Promise<void> {
-        localStorage.setItem(this.getKey(table), JSON.stringify(items));
-        await this.syncToCloud(table, items);
+        try {
+            localStorage.setItem(this.getKey(table), JSON.stringify(items));
+            await this.syncToCloud(table, items);
+        } catch (e) {
+            if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+                alert("Critical Error: Local storage quota exceeded (5MB limit). Please reduce the size of your import.");
+            }
+            throw e;
+        }
     }
 
     // Insert a new record into a table
@@ -51,6 +63,17 @@ class DatabaseService {
         items.unshift(item);
         await this.saveAll(table, items);
         return item;
+    }
+
+    // Efficiently insert multiple records in one transaction
+    async bulkInsert<T extends { id?: string | number }>(table: Table, newItems: T[]): Promise<void> {
+        const items = await this.getAll<T>(table);
+        const prepared = newItems.map(item => {
+            if (!item.id) item.id = `ID-${Math.random().toString(36).substr(2, 9)}`;
+            return item;
+        });
+        const combined = [...prepared, ...items];
+        await this.saveAll(table, combined);
     }
 
     // Update an existing record by ID

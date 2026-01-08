@@ -6,7 +6,9 @@ import {
   Briefcase, Sparkles, Wand2, RefreshCw, Factory, ShoppingCart, MessageSquareText,
   Activity, ArrowRight, Info, Eye, Mail, Info as InfoIcon, Globe, Fingerprint,
   Users as UsersIcon,
-  ChevronDown
+  ChevronDown,
+  AlertTriangle,
+  BadgeCheck
 } from 'lucide-react';
 import { Region, ActorType, TINKHUNDLA, EntityType, UserRole, UserProfile, RDAs } from '../types';
 import { Register_New_User, Get_System_Metadata, View_All_System_Users } from '../services/adminDataService';
@@ -83,11 +85,33 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
     loadInitData();
   }, []);
 
+  const parseDOBFromID = (id: string) => {
+    if (id && id.length >= 8) {
+      const year = id.substring(0, 4);
+      const month = id.substring(4, 6);
+      const day = id.substring(6, 8);
+      // Basic validation: month 1-12, day 1-31
+      const m = parseInt(month);
+      const d = parseInt(day);
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+    return '';
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'organizationId') {
         const selected = existingInstitutions.find(i => i.id === value);
         setFormData({ ...formData, organizationId: value, organizationName: selected?.organization || '' });
+    } else if (name === 'idNumber') {
+        const calculatedDob = parseDOBFromID(value);
+        setFormData(prev => ({ 
+            ...prev, 
+            idNumber: value, 
+            dob: calculatedDob || prev.dob 
+        }));
     } else {
         setFormData({ ...formData, [name]: value });
     }
@@ -105,12 +129,14 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                   const base64 = (reader.result as string).split(',')[1];
                   const extracted = await extractPersonalDetailsFromID(base64, file.type);
                   if (extracted) {
+                      const finalId = extracted.idNumber || formData.idNumber;
+                      const calculatedDob = parseDOBFromID(finalId);
                       setFormData(prev => ({
                           ...prev,
                           firstName: extracted.firstName || prev.firstName,
                           lastName: extracted.lastName || prev.lastName,
-                          idNumber: extracted.idNumber || prev.idNumber,
-                          dob: extracted.dob || prev.dob,
+                          idNumber: finalId,
+                          dob: calculatedDob || extracted.dob || prev.dob,
                           gender: extracted.gender || prev.gender,
                           chiefCode: extracted.chiefCode || prev.chiefCode
                       }));
@@ -135,8 +161,10 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
     if (formData.actorType === ActorType.Extension) role = UserRole.Extension;
     else if (formData.actorType === ActorType.Gov) role = UserRole.Government;
 
+    const finalStatus = formData.idNumber.trim() ? 'Pending Approval' : 'Suspended';
+
     const newUser: UserProfile = {
-        id: formData.idNumber,
+        id: formData.idNumber || `TEMP-${Date.now()}`,
         name: `${formData.firstName} ${formData.lastName}`,
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -147,7 +175,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
         tinkhundla: formData.tinkhundla,
         rda: formData.rda,
         country: formData.country,
-        status: 'Pending Approval',
+        status: finalStatus as any,
         contact: formData.phone,
         email: formData.email,
         gender: formData.gender,
@@ -188,10 +216,23 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
           <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden relative">
               <div className="p-8 sm:p-10">
                   <div className="mb-8">
-                      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
-                          <span className="w-8 h-8 bg-slate-50 rounded-xl flex items-center justify-center text-[#1B4D3E] border border-slate-100">{SECTIONS[step-1].icon}</span>
-                          Section {step}: {SECTIONS[step-1].title}
-                      </h3>
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                            <span className="w-8 h-8 bg-slate-50 rounded-xl flex items-center justify-center text-[#1B4D3E] border border-slate-100">{SECTIONS[step-1].icon}</span>
+                            Section {step}: {SECTIONS[step-1].title}
+                        </h3>
+                        {formData.idNumber ? (
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 animate-fade-in">
+                            <BadgeCheck size={14}/>
+                            <span className="text-[8px] font-black uppercase tracking-widest">PIN Supplied</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full border border-rose-100 animate-pulse">
+                            <AlertTriangle size={14}/>
+                            <span className="text-[8px] font-black uppercase tracking-widest">Not Verified</span>
+                          </div>
+                        )}
+                      </div>
                       <div className="h-0.5 w-12 bg-[#FBBF24] mt-3 rounded-full"/>
                   </div>
 
@@ -264,7 +305,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">National ID (PIN)</label>
                                   <div className="relative">
                                     <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18}/>
-                                    <input name="idNumber" value={formData.idNumber} onChange={handleChange} placeholder="Enter PIN" className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-black text-sm outline-none text-[#1B4D3E] focus:bg-white" />
+                                    <input name="idNumber" value={formData.idNumber} onChange={handleChange} placeholder="Enter PIN (YYYYMMDD...)" className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-black text-sm outline-none text-[#1B4D3E] focus:bg-white" />
                                   </div>
                               </div>
                               <div className="space-y-1">
@@ -284,7 +325,10 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                               </div>
                               <div className="space-y-1">
                                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Date of Birth</label>
-                                  <input name="dob" type="date" value={formData.dob} onChange={handleChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white" />
+                                  <div className="relative">
+                                    <input name="dob" type="date" value={formData.dob} onChange={handleChange} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all focus:ring-4 focus:ring-amber-400/5" />
+                                    {formData.idNumber.length >= 8 && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100">Sync'd with PIN</div>}
+                                  </div>
                               </div>
                           </div>
                           <div className="flex gap-4 pt-6">
@@ -428,9 +472,11 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
                   <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-sm mx-auto">
                     The node for <span className="text-[#1B4D3E] font-black">{formData.firstName} {formData.lastName}</span> is currently being vetted by the National Hub.
                   </p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-2xl border border-amber-100">
-                      <Clock size={14}/>
-                      <span className="text-[10px] font-black uppercase tracking-widest">Awaiting Oversight Verification</span>
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-2xl border ${formData.idNumber ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                      {formData.idNumber ? <Clock size={14}/> : <AlertTriangle size={14}/>}
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        {formData.idNumber ? 'Awaiting Oversight Verification' : 'Verification Document Required'}
+                      </span>
                   </div>
               </div>
               <button onClick={onBackToLogin} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-[#143d31] transition-all">Back to Login</button>

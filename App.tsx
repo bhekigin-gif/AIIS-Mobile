@@ -11,8 +11,9 @@ import Login from './components/Login';
 import AdminModule from './components/AdminModule';
 import CapacityBuilding from './components/CapacityBuilding';
 import Information from './components/Information';
+import ProfileModal from './components/ProfileModal';
 import { SalesProduct, MarketCartItem, MarketOrder, UserRole, UserProfile } from './types';
-import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info } from 'lucide-react';
+import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info, MapPinned } from 'lucide-react';
 import { Initialize_Database, View_Trading_Catalogue_Items } from './services/adminDataService';
 
 const AccessDenied = ({ message }: { message: string }) => (
@@ -26,13 +27,18 @@ const AccessDenied = ({ message }: { message: string }) => (
 const App: React.FC = () => {
   const [isDbReady, setIsDbReady] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1024);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1280);
   const [isAIAdvisorOpen, setIsAIAdvisorOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [products, setProducts] = useState<SalesProduct[]>([]);
   const [marketCart, setMarketCart] = useState<MarketCartItem[]>([]);
   const [globalOrders, setGlobalOrders] = useState<MarketOrder[]>([]);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
+  const isDesktop = windowWidth >= 1024;
 
   useEffect(() => {
     Initialize_Database().then(async () => {
@@ -42,9 +48,9 @@ const App: React.FC = () => {
     });
 
     const handleResize = () => {
-      const width = window.innerWidth;
-      setWindowWidth(width);
-      if (width < 1024) {
+      const currentWidth = window.innerWidth;
+      setWindowWidth(currentWidth);
+      if (currentWidth < 1024) {
         setIsSidebarCollapsed(true);
       }
     };
@@ -73,7 +79,7 @@ const App: React.FC = () => {
       case 'dashboard': return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
       case 'market': return <Marketplace products={products} setProducts={setProducts} cart={marketCart} setCart={setMarketCart} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} user={user} />;
       case 'production': return user?.role === UserRole.Farmer ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Farmers only." />;
-      case 'admin': return user?.role === UserRole.Government ? <AdminModule currentUser={user} /> : <AccessDenied message="Officials only." />;
+      case 'admin': return (user?.role === UserRole.Government || user?.role === UserRole.Extension) ? <AdminModule currentUser={user} /> : <AccessDenied message="Authorized Officials only." />;
       case 'capacity': return <CapacityBuilding />;
       case 'info': return <Information />;
       default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
@@ -86,30 +92,30 @@ const App: React.FC = () => {
     { id: 'info', label: 'Information Centre', icon: <Info size={20}/> },
     { id: 'capacity', label: 'Capacity Building', icon: <BookOpen size={20}/> },
     ...(user?.role === UserRole.Farmer ? [{ id: 'production', label: 'Ops Manager', icon: <Factory size={20}/> }] : []),
-    ...(user?.role === UserRole.Government ? [{ id: 'admin', label: 'Oversight', icon: <Shield size={20}/> }] : [])
+    ...(user?.role === UserRole.Government ? [{ id: 'admin', label: 'Oversight', icon: <Shield size={20}/> }] : []),
+    ...(user?.role === UserRole.Extension ? [{ id: 'admin', label: 'Field Hub', icon: <MapPinned size={20}/> }] : [])
   ];
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 overflow-hidden font-sans">
       
-      {/* Sidebar - Desktop relative, Mobile absolute drawer */}
       <Sidebar 
         isCollapsed={isSidebarCollapsed} 
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
         user={user} 
         onLogout={() => setUser(null)} 
-        onProfileClick={() => {}} 
+        onProfileClick={() => setIsProfileOpen(true)} 
         navItems={commonNavItems} 
         activeTab={activeTab} 
         setActiveTab={handleNavClick} 
-        className={`${windowWidth >= 1024 ? 'relative' : 'fixed inset-y-0 left-0 transform transition-transform duration-300 z-[160] shadow-2xl'} 
-                   ${windowWidth < 1024 && isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`}
+        className={`${isDesktop ? 'relative' : 'fixed inset-y-0 left-0 transform transition-transform duration-300 z-[160] shadow-2xl'} 
+                   ${!isDesktop && isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'}`}
       />
 
       <main className="flex-1 h-full flex flex-col relative overflow-hidden bg-white">
-          <header className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 bg-white border-b border-slate-100 shrink-0 z-10">
+          <header className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 bg-white border-b border-slate-100 shrink-0 z-10 shadow-sm">
               <div className="flex items-center gap-2 sm:gap-3">
-                {windowWidth < 1024 && (
+                {!isDesktop && (
                   <button onClick={() => setIsSidebarCollapsed(false)} className="p-2 bg-slate-50 text-[#1B4D3E] hover:bg-slate-100 rounded-xl transition-colors">
                     <MoreVertical size={20}/>
                   </button>
@@ -117,38 +123,39 @@ const App: React.FC = () => {
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
                       <span className="text-[10px] sm:text-[13px] font-black uppercase tracking-tight text-[#1B4D3E]">AIIS National Node</span>
-                      {windowWidth >= 1024 && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black rounded-md uppercase border border-emerald-100">v4.0</span>}
+                      {isDesktop && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black rounded-md uppercase border border-emerald-100 ml-2">v4.0 Enterprise</span>}
                   </div>
                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest hidden xs:block">Eswatini • Agriculture</span>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100 sm:pr-4">
+                <button 
+                  onClick={() => setIsProfileOpen(true)}
+                  className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100 sm:pr-4 hover:bg-slate-100 transition-colors"
+                >
                   <div className="w-8 h-8 rounded-xl bg-[#1B4D3E] flex items-center justify-center text-[10px] sm:text-[12px] font-black text-white">
                       {user?.name?.charAt(0) || 'G'}
                   </div>
-                  <div className="hidden sm:flex flex-col overflow-hidden max-w-[100px]">
+                  <div className="hidden sm:flex flex-col overflow-hidden max-w-[120px]">
                       <span className="text-[10px] font-black text-slate-800 uppercase tracking-tight truncate">{user?.name || 'Guest'}</span>
                       <span className="text-[8px] font-bold text-slate-400 uppercase truncate">{user?.actorType || 'Portal'}</span>
                   </div>
-                </div>
+                </button>
               </div>
           </header>
 
-          <div className={`flex-1 overflow-y-auto no-scrollbar ${windowWidth >= 1024 ? 'p-8' : 'p-4 pb-24'}`}>
+          <div className={`flex-1 overflow-y-auto no-scrollbar ${isDesktop ? 'p-8' : 'p-4 pb-24'}`}>
               <div className="max-w-[1600px] mx-auto w-full">
                   {renderContent()}
               </div>
           </div>
 
-          {/* Bottom Navigation only for mobile views */}
-          {windowWidth < 768 && (
+          {isMobile && (
             <BottomNav activeTab={activeTab} setActiveTab={handleNavClick} user={user} onMoreClick={() => setIsSidebarCollapsed(false)} toggleAI={() => setIsAIAdvisorOpen(true)} />
           )}
       </main>
 
-      {/* AI Advisor side panel */}
       <div className={`fixed inset-y-0 right-0 z-[170] w-full sm:w-[480px] bg-white shadow-[-20px_0_80px_rgba(0,0,0,0.1)] transform transition-transform duration-500 ease-in-out border-l border-slate-100 ${isAIAdvisorOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="h-full flex flex-col">
             <div className="p-5 sm:p-6 bg-[#1B4D3E] text-white flex justify-between items-center shrink-0">
@@ -163,12 +170,20 @@ const App: React.FC = () => {
                 </div>
                 <button onClick={() => setIsAIAdvisorOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all text-white/60 hover:text-white"><X size={20} /></button>
             </div>
-            <div className="flex-1 overflow-hidden"><AIAdvisor /></div>
+            {/* Fix: Passed currentUser prop to AIAdvisor component */}
+            <div className="flex-1 overflow-hidden"><AIAdvisor currentUser={user} /></div>
         </div>
       </div>
+
+      {isProfileOpen && user && (
+        <ProfileModal 
+            user={user} 
+            onClose={() => setIsProfileOpen(false)} 
+            onSave={(updated) => { setUser(updated); setIsProfileOpen(false); }} 
+        />
+      )}
       
-      {/* Mobile Backdrop for Sidebar Drawer */}
-      {!isSidebarCollapsed && windowWidth < 1024 && (
+      {!isSidebarCollapsed && !isDesktop && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[155] animate-fade-in" onClick={() => setIsSidebarCollapsed(true)} />
       )}
     </div>

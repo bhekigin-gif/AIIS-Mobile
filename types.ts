@@ -1,4 +1,5 @@
 
+
 export enum Region {
   Hhohho = 'Hhohho',
   Manzini = 'Manzini',
@@ -42,6 +43,7 @@ export enum EntityType {
   Police = 'Police station/post',
   Prison = 'Correctional Service',
   Army = 'Army',
+  EmployeeMember = 'Employee/Member',
   Other = 'Other'
 }
 
@@ -96,6 +98,7 @@ export interface UserProfile {
   functionalRole?: string;
   country?: string;
   rda?: string;
+  veterinaryArea?: string;
   chiefCode?: string; // Chief Code from ID
   affiliations?: string[];
 }
@@ -122,6 +125,7 @@ export interface SalesProduct {
     rejectionReason?: string;
     operationId?: string;
     parentBatchId?: string;
+    isService?: boolean; // Indicates training or advisory
 }
 
 export interface MarketCartItem extends SalesProduct {
@@ -142,6 +146,8 @@ export interface MarketOrder {
 }
 
 export interface CatalogueItem {
+  /** Satisfy DatabaseService constraints by including an optional ID */
+  id?: string | number;
   registrationId: string;
   division: string;
   category: string;
@@ -190,7 +196,7 @@ export interface ProductionProcess {
 export interface Operation {
   id: string;
   activity: string;
-  type: 'Production' | 'Harvest' | 'Processing' | 'Maintenance' | 'Service';
+  type: 'Production' | 'Harvest' | 'Processing' | 'Maintenance' | 'Service' | 'Training' | 'FarmVisit' | 'Advisory';
   field: string;
   processId?: string;
   status: 'In Progress' | 'Scheduled' | 'Completed' | 'Paused';
@@ -201,6 +207,7 @@ export interface Operation {
   durationHours?: number;
   accumulatedCost?: number;
   producedId?: string;
+  beneficiariesReached?: number; // For extension impact tracking
 }
 
 export interface StatData {
@@ -210,7 +217,7 @@ export interface StatData {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'model';
+  role: 'user' | 'model' | 'extension'; // Support human officer role
   text: string;
   timestamp: Date;
   groundingMetadata?: any;
@@ -218,6 +225,7 @@ export interface ChatMessage {
     mimeType: string;
     data: string;
   };
+  senderName?: string;
 }
 
 export const TINKHUNDLA = {
