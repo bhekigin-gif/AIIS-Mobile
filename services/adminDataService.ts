@@ -3,7 +3,9 @@ import { UserProfile, UserRole, ActorType, EntityType, Region, SalesProduct, Ind
 import { db, Table } from './databaseService';
 
 // --- SYSTEM METADATA DEFAULTS ---
+// Added id to satisfy DatabaseService type constraints
 const INITIAL_METADATA = {
+    id: 'GLOBAL_SYSTEM_METADATA',
     regions: Object.values(Region).filter(r => r !== Region.All),
     actorTypes: Object.values(ActorType),
     entityTypes: Object.values(EntityType),
@@ -97,6 +99,7 @@ export const Initialize_Database = async () => {
     }
 
     const meta = await db.getAll(Table.Metadata);
+    // Fixed type error by ensuring INITIAL_METADATA has an 'id' property compatible with DatabaseService
     if (meta.length === 0) await db.saveAll(Table.Metadata, [INITIAL_METADATA]);
 
     const cat = await db.getAll(Table.Catalogue);
