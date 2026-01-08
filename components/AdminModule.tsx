@@ -25,7 +25,8 @@ import {
     ChevronRightSquare,
     Building,
     ChevronLeft,
-    FilterX
+    FilterX,
+    CalendarCheck
 } from 'lucide-react';
 import { 
     View_All_System_Users, 
@@ -125,6 +126,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     const [userPageSize] = useState(20);
     const [filterRole, setFilterRole] = useState<string>('All');
     const [filterRegion, setFilterRegion] = useState<string>('All');
+    const [filterTinkhundla, setFilterTinkhundla] = useState<string>('All');
 
     // Editing State
     const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -200,10 +202,11 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             
             const matchesRole = filterRole === 'All' || u.role === filterRole || u.actorType === filterRole;
             const matchesRegion = filterRegion === 'All' || u.region === filterRegion;
+            const matchesTinkhundla = filterTinkhundla === 'All' || u.tinkhundla === filterTinkhundla;
 
-            return matchesSearch && matchesRole && matchesRegion;
+            return matchesSearch && matchesRole && matchesRegion && matchesTinkhundla;
         });
-    }, [allUsers, userSearch, filterRole, filterRegion]);
+    }, [allUsers, userSearch, filterRole, filterRegion, filterTinkhundla]);
 
     const paginatedUsers = useMemo(() => {
         const start = (userPage - 1) * userPageSize;
@@ -437,14 +440,14 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         placeholder="Filter by Name, ID, or Contacts..." 
                         value={userSearch} 
                         onChange={(e) => { setUserSearch(e.target.value); setUserPage(1); }} 
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all" 
+                        className="w-full h-12 pl-10 pr-4 bg-slate-50 border border-slate-100 rounded-xl font-bold text-xs outline-none focus:ring-4 focus:ring-indigo-500/5 transition-all" 
                     />
                 </div>
-                <div className="flex gap-2 w-full md:w-auto">
+                <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     <select 
                         value={filterRole} 
                         onChange={(e) => { setFilterRole(e.target.value); setUserPage(1); }}
-                        className="px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-tight text-[#1B4D3E] outline-none"
+                        className="px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-tight text-[#1B4D3E] outline-none h-12"
                     >
                         <option value="All">All Roles</option>
                         {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
@@ -453,15 +456,25 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     </select>
                     <select 
                         value={filterRegion} 
-                        onChange={(e) => { setFilterRegion(e.target.value); setUserPage(1); }}
-                        className="px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-tight text-[#1B4D3E] outline-none"
+                        onChange={(e) => { setFilterRegion(e.target.value); setFilterTinkhundla('All'); setUserPage(1); }}
+                        className="px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-tight text-[#1B4D3E] outline-none h-12"
                     >
                         <option value="All">National Scope</option>
                         {systemMetadata.regions.map((r: string) => <option key={r} value={r}>{r}</option>)}
                     </select>
+                    {filterRegion !== 'All' && (
+                        <select 
+                            value={filterTinkhundla} 
+                            onChange={(e) => { setFilterTinkhundla(e.target.value); setUserPage(1); }}
+                            className="px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-tight text-[#1B4D3E] outline-none h-12 animate-fade-in"
+                        >
+                            <option value="All">All Constituencies</option>
+                            {TINKHUNDLA[filterRegion as Region]?.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                    )}
                     <button 
-                        onClick={() => { setUserSearch(''); setFilterRole('All'); setFilterRegion('All'); setUserPage(1); }}
-                        className="p-2.5 text-slate-400 hover:text-rose-500 bg-slate-50 rounded-xl transition-all"
+                        onClick={() => { setUserSearch(''); setFilterRole('All'); setFilterRegion('All'); setFilterTinkhundla('All'); setUserPage(1); }}
+                        className="px-3 h-12 text-slate-400 hover:text-rose-500 bg-slate-50 border border-slate-100 rounded-xl transition-all"
                         title="Clear Filters"
                     >
                         <FilterX size={18}/>
@@ -470,7 +483,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             </div>
 
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-x-auto no-scrollbar">
-                <table className="w-full text-left border-collapse min-w-[1400px]">
+                <table className="w-full text-left border-collapse min-w-[1500px]">
                     <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-widest sticky top-0 z-10">
                         <tr>
                             <th className="p-4 sticky left-0 bg-[#1B4D3E] z-20">Full Name / Persona</th>
@@ -480,6 +493,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                             <th className="p-4 text-center">Institution Node</th>
                             <th className="p-4 text-center">Operational Area</th>
                             <th className="p-4 text-center">Status</th>
+                            <th className="p-4 text-center">Last Access</th>
                             <th className="p-4 text-right sticky right-0 bg-[#1B4D3E] z-20">Actions</th>
                         </tr>
                     </thead>
@@ -491,8 +505,21 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                                 <td className="p-3"><div className="flex flex-col gap-0.5 text-slate-500 font-bold text-[10px]"><div className="flex items-center gap-1.5"><Mail size={10} className="text-slate-300" /><span className="truncate max-w-[150px]">{u.email || 'N/A'}</span></div><div className="flex items-center gap-1.5"><Phone size={10} className="text-slate-300" /><span>{u.contact || 'N/A'}</span></div></div></td>
                                 <td className="p-3 text-center"><span className="text-[9px] font-black text-slate-400 uppercase">{u.gender || '-'}</span></td>
                                 <td className="p-3 text-center"><div className="space-y-0.5"><p className="text-[9px] font-black text-slate-700 uppercase">{u.entityType}</p><p className="text-[8px] text-slate-400 italic truncate max-w-[100px] mx-auto">{u.organization || 'Individual'}</p></div></td>
-                                <td className="p-3 text-center"><div className="space-y-0.5"><p className="text-[9px] font-black text-[#1B4D3E] uppercase">{u.country} • {u.region}</p><p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">{u.rda || 'All'} RDA • {u.tinkhundla || 'General'}</p></div></td>
+                                <td className="p-3 text-center">
+                                    <div className="space-y-0.5">
+                                        <p className="text-[9px] font-black text-[#1B4D3E] uppercase">{u.country} • {u.region}</p>
+                                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-tighter">{u.rda || 'All'} RDA • {u.tinkhundla || 'General'}</p>
+                                    </div>
+                                </td>
                                 <td className="p-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${u.status === 'Active' ? 'bg-green-50 text-green-700' : u.status === 'Suspended' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{u.status}</span></td>
+                                <td className="p-3 text-center">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <CalendarCheck size={12} className={u.lastLogin ? "text-emerald-500" : "text-slate-200"} />
+                                        <span className="text-[9px] font-black text-slate-500 uppercase">
+                                            {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never Sync'}
+                                        </span>
+                                    </div>
+                                </td>
                                 <td className="p-3 text-right sticky right-0 bg-white group-hover:bg-slate-50 z-10">
                                     <div className="flex justify-end items-center gap-1">
                                         <button onClick={() => setEditingUser({...u})} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Update Profile"><Edit2 size={14} /></button>
@@ -608,7 +635,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
 
     const renderCatalogue = () => (
         <div className="space-y-2 animate-fade-in flex flex-col h-[calc(100vh-200px)] relative">
-            <div className="bg-white p-2 rounded-xl border border-slate-100 flex items-center gap-2 shrink-0"><div className="relative flex-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} /><input type="text" placeholder="Filter National Master Catalogue..." value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)} className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border-none rounded-lg font-bold text-[10px] outline-none" /></div></div>
+            <div className="bg-white p-2 rounded-xl border border-slate-100 flex items-center gap-2 shrink-0"><div className="relative flex-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} /><input type="text" placeholder="Filter National Master Catalogue..." value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)} className="w-full h-10 pl-8 pr-3 py-1.5 bg-slate-50 border-none rounded-lg font-bold text-[10px] outline-none" /></div></div>
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-x-auto overflow-y-auto no-scrollbar relative">
                 <table className="w-full text-left border-collapse min-w-[1900px]">
                     <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-widest sticky top-0 z-10">

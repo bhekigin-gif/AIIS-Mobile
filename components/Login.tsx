@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { UserRole, UserProfile, Region } from '../types';
 import { View_All_System_Users } from '../services/adminDataService';
+import { db, Table as DbTable } from '../services/databaseService';
 
 interface LoginProps {
   onLogin: (user: UserProfile) => void;
@@ -78,17 +79,24 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
             return;
         }
 
+        // Persistence of Last Login Node
+        const now = new Date().toISOString();
+        if (matchedUser.id) {
+            await db.update<UserProfile>(DbTable.Users, matchedUser.id, { lastLogin: now });
+        }
+        const userWithLogin = { ...matchedUser, lastLogin: now };
+
         const needsKey = (matchedUser.role === UserRole.Government || matchedUser.role === UserRole.Extension);
         const canSelectKey = typeof window.aistudio !== 'undefined';
 
         if (needsKey && !hasApiKey && canSelectKey) {
-            setPendingUser(matchedUser);
+            setPendingUser(userWithLogin);
             setShowKeyWarning(true);
             setIsAuthenticating(false);
             return;
         }
 
-        onLogin(matchedUser);
+        onLogin(userWithLogin);
     };
 
     setTimeout(processAuth, 600); 

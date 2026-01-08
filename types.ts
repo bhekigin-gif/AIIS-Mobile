@@ -98,6 +98,7 @@ export interface UserProfile {
   functionalRole?: string;
   country?: string;
   rda?: string;
+  lastLogin?: string; // Added to track last access
   veterinaryArea?: string;
   chiefCode?: string; // Chief Code from ID
   affiliations?: string[];
