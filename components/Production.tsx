@@ -16,7 +16,11 @@ import {
   Tags, ArrowUpRight, BarChart4, ChevronLeft, PieChart,
   TrendingDown, Scale, MapPinned, Camera, Upload,
   Minimize2, Archive, CalendarDays, LineChart as LineIcon,
-  Landmark, Maximize, GraduationCap, Microscope
+  Landmark, Maximize, GraduationCap, Microscope,
+  LocateFixed, Edit, Height,
+  Eye,
+  Scan,
+  TrendingDownIcon
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
@@ -31,6 +35,7 @@ import {
   View_Master_Catalogue, Get_System_Metadata, addProductToRegistry, View_All_System_Users 
 } from '../services/adminDataService';
 import { db, Table } from '../services/databaseService';
+import { analyzeResourceImage } from '../services/geminiService';
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyDFuDLViwxFLH0iO-zFgbJkks20w_DiiJU";
 const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
@@ -63,11 +68,10 @@ const Production: React.FC<ProductionProps> = ({
 }) => {
   const isExtension = user?.role === UserRole.Extension;
 
-  const [activeTab, setActiveTab] = useState<'ESTABLISHMENT' | 'INVENTORY' | 'OPERATIONS' | 'CALENDAR' | 'REPORTS'>('ESTABLISHMENT');
-  const [inventorySubTab, setInventorySubTab] = useState<'ASSETS' | 'LOGS'>('ASSETS');
+  // Reordered tabs: Performance first, then Setup, Resources, Operations, Calendar
+  const [activeTab, setActiveTab] = useState<'REPORTS' | 'SETUP' | 'RESOURCES' | 'OPERATIONS' | 'CALENDAR'>('REPORTS');
+  const [inventorySubTab, setInventorySubTab] = useState<'RESOURCES' | 'LOGS'>('RESOURCES');
   const [googleApiLoaded, setGoogleApiLoaded] = useState(false);
-  
-  const [logFilterResourceId, setLogFilterResourceId] = useState<string>('All');
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -81,18 +85,8 @@ const Production: React.FC<ProductionProps> = ({
 
   const [systemMetadata, setSystemMetadata] = useState<any>(null);
   const [enterprises, setEnterprises] = useState<any[]>([]);
-  const [allSystemUsers, setAllSystemUsers] = useState<UserProfile[]>([]);
-  const [masterCatalogue, setMasterCatalogue] = useState<CatalogueItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  // Dynamic labels for Extension work
-  const tabLabels = {
-      'ESTABLISHMENT': isExtension ? 'Coverage Map' : 'Hub Mapping',
-      'INVENTORY': isExtension ? 'Training Kit' : 'Asset Bank',
-      'OPERATIONS': isExtension ? 'Outreach Logs' : 'Cycle Logs',
-      'CALENDAR': 'Schedule',
-      'REPORTS': isExtension ? 'Reach Analytics' : 'Performance'
-  };
+  const [isAnalyzingAsset, setIsAnalyzingAsset] = useState(false);
 
   const scopeId = (user?.entityType === EntityType.EmployeeMember || user?.actorType === ActorType.Gov) && user?.organizationId 
     ? user.organizationId 
@@ -100,18 +94,14 @@ const Production: React.FC<ProductionProps> = ({
 
   const loadAllData = async (newSelectedId?: string) => {
     setIsLoading(true);
-    const [meta, users, catalogue, allEnterprises] = await Promise.all([
+    const [meta, catalogue, allEnterprises] = await Promise.all([
         Get_System_Metadata(),
-        View_All_System_Users(),
         View_Master_Catalogue(),
         db.getAll<any>(Table.Enterprises)
     ]);
     setSystemMetadata(meta);
-    setAllSystemUsers(users);
-    setMasterCatalogue(catalogue);
 
     let scoped: any[] = [];
-
     if (!user) {
         scoped = [];
     } else if (isExtension) {
@@ -150,13 +140,10 @@ const Production: React.FC<ProductionProps> = ({
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
-  const [showUsageModal, setShowUsageModal] = useState(false);
   const [showOpModal, setShowOpModal] = useState(false);
-  const [showUnitInventoryModal, setShowUnitInventoryModal] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
   
   const [activeUnitForInventory, setActiveUnitForInventory] = useState<any>(null);
-  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [finishingOp, setFinishingOp] = useState<Operation | null>(null);
 
   const [isPlacingMode, setIsPlacingMode] = useState(false);
@@ -171,15 +158,11 @@ const Production: React.FC<ProductionProps> = ({
       name: '', region: Region.Manzini, tinkhundla: '', lat: '', lng: '', address: '', country: 'Eswatini', closestPlace: '', entNumber: ''
   });
   const [newUnit, setNewUnit] = useState({
-      id: '', name: '', unitNumber: '', area: '', height: 1.2, costPerHour: '', supervisor: '', path: [] as any[]
+      id: '', name: '', unitNumber: '', area: '', height: 10, costPerHour: '', supervisor: '', path: [] as any[]
   });
 
-  const [newAsset, setNewAsset] = useState<Partial<Resource & { productionDate?: string; expiryDate?: string; initialValue?: number }>>({
-      type: isExtension ? ResourceType.Personnel : ResourceType.Machinery, name: '', unitCost: 0, category: 'General', status: 'Available', quantity: 1, unitNumber: '', initialValue: 0, productionDate: new Date().toISOString().split('T')[0], expiryDate: ''
-  });
-
-  const [usageLogEntry, setUsageLogEntry] = useState<Partial<ResourceLog>>({
-      resourceId: '', quantityUsed: 0, hoursUsed: 0, notes: '', operationId: ''
+  const [newAsset, setNewAsset] = useState<Partial<Resource & { productionDate?: string; expiryDate?: string; initialValue?: number; image?: string }>>({
+      type: isExtension ? ResourceType.Personnel : ResourceType.Machinery, name: '', unitCost: 0, category: 'General', status: 'Available', quantity: 1, unitNumber: '', initialValue: 0, productionDate: new Date().toISOString().split('T')[0], expiryDate: '', details: ''
   });
 
   const [newOp, setNewOp] = useState<Partial<Operation>>({
@@ -203,11 +186,22 @@ const Production: React.FC<ProductionProps> = ({
       }
   };
 
-  const calculatedVolume = useMemo(() => {
-    const areaHa = parseFloat(newUnit.area) || 0;
-    const heightM = newUnit.height || 0;
-    return (areaHa * 10000 * heightM).toLocaleString(undefined, { maximumFractionDigits: 0 });
-  }, [newUnit.area, newUnit.height]);
+  const handleResourceAIAnalyze = async () => {
+    if (!newAsset.image) return;
+    setIsAnalyzingAsset(true);
+    const base64 = newAsset.image.split(',')[1];
+    const result = await analyzeResourceImage(base64);
+    if (result) {
+        setNewAsset(prev => ({
+            ...prev,
+            name: result.name || prev.name,
+            type: (result.type || prev.type) as ResourceType,
+            category: result.category || prev.category,
+            details: result.description || prev.details
+        }));
+    }
+    setIsAnalyzingAsset(false);
+  };
 
   useEffect(() => {
     if ((window as any).google?.maps) { setGoogleApiLoaded(true); return; }
@@ -230,31 +224,104 @@ const Production: React.FC<ProductionProps> = ({
     }
   };
 
+  const handleLocateMe = () => {
+    if (navigator.geolocation && mapInstance) {
+      setIsResolvingGIS(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+          mapInstance.setCenter(pos);
+          mapInstance.setZoom(18);
+          setIsResolvingGIS(false);
+        },
+        () => {
+          setIsResolvingGIS(false);
+          alert("Could not access your physical location.");
+        }
+      );
+    }
+  };
+
   useEffect(() => {
     const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
+  const startTracing = (entId: string) => {
+    setSelectedEntId(entId);
+    setIsTracing(true);
+    setIsPlacingMode(false);
+    if (drawingManager) {
+        drawingManager.setDrawingMode((window as any).google.maps.drawing.OverlayType.POLYGON);
+    }
+  };
+
+  const handleEditEnterprise = (ent: any) => {
+    setEditingEntId(ent.id);
+    setNewEnterprise({
+        name: ent.name,
+        region: ent.region,
+        tinkhundla: ent.tinkhundla || '',
+        lat: ent.gps.lat.toString(),
+        lng: ent.gps.lng.toString(),
+        address: ent.address || '',
+        country: ent.country || 'Eswatini',
+        closestPlace: ent.closestPlace || '',
+        entNumber: ent.entNumber || ''
+    });
+    setShowEnterpriseModal(true);
+  };
+
+  const handleEditUnit = (entId: string, unit: any) => {
+    setSelectedEntId(entId);
+    setEditingUnitId(unit.id);
+    setNewUnit({ ...unit, height: unit.height || 10 });
+    setShowUnitModal(true);
+  };
+
+  const handleAddResourceToUnit = (entId: string, unit: any) => {
+    setSelectedEntId(entId);
+    setActiveUnitForInventory(unit);
+    setNewAsset({
+      type: isExtension ? ResourceType.Personnel : ResourceType.Machinery,
+      name: '',
+      unitCost: 0,
+      category: 'General',
+      status: 'Available',
+      quantity: 1,
+      unitNumber: '',
+      initialValue: 0,
+      productionDate: new Date().toISOString().split('T')[0],
+      expiryDate: '',
+      details: ''
+    });
+    setShowAssetModal(true);
+  };
+
+  // Map Instance Sync Effect
   useEffect(() => {
-    if (activeTab === 'ESTABLISHMENT' && googleApiLoaded && mapRef.current) {
+    if (activeTab === 'SETUP' && googleApiLoaded && mapRef.current) {
         let map = mapInstance;
+        
         if (!map) {
             map = new (window as any).google.maps.Map(mapRef.current, {
                 center: selectedEnterprise?.gps || { lat: -26.48, lng: 31.37 },
                 zoom: selectedEnterprise ? 18 : 11,
                 mapTypeId: 'hybrid',
                 disableDefaultUI: true,
-                fullscreenControl: true, 
+                fullscreenControl: false, 
                 gestureHandling: 'greedy',
             });
             setMapInstance(map);
 
-            map.addListener('click', async (e: any) => {
+            map.addListener('click', (e: any) => {
                 if (!isPlacingModeRef.current) return;
+                
                 const lat = e.latLng.lat();
                 const lng = e.latLng.lng();
                 setIsResolvingGIS(true);
+                
                 const geocoder = new (window as any).google.maps.Geocoder();
                 geocoder.geocode({ location: e.latLng }, (results: any, status: any) => {
                     let address = 'GPS Located';
@@ -263,26 +330,34 @@ const Production: React.FC<ProductionProps> = ({
                     let country = 'Eswatini';
                     let closestPlace = '';
 
-                    if (status === 'OK' && results[0]) {
-                        address = results[0].formatted_address;
-                        const poi = results.find((r: any) => r.types.includes('point_of_interest') || r.types.includes('establishment'));
-                        if (poi) closestPlace = poi.name || poi.formatted_address.split(',')[0];
-                        results[0].address_components.forEach((c: any) => {
-                            if (c.types.includes('country')) country = c.long_name;
-                            if (c.types.includes('administrative_area_level_1')) {
-                                if (c.long_name.includes('Hhohho')) region = Region.Hhohho;
-                                else if (c.long_name.includes('Manzini')) region = Region.Manzini;
-                                else if (c.long_name.includes('Shiselweni')) region = Region.Shiselweni;
-                                else if (c.long_name.includes('Lubombo')) region = Region.Lubombo;
-                            }
-                            if (c.types.includes('locality') || c.types.includes('administrative_area_level_2')) tinkhundla = c.long_name;
-                        });
+                    try {
+                        if (status === 'OK' && results[0]) {
+                            address = results[0].formatted_address;
+                            const poi = results.find((r: any) => r.types.includes('point_of_interest') || r.types.includes('establishment'));
+                            if (poi) closestPlace = poi.name || poi.formatted_address.split(',')[0];
+                            results[0].address_components.forEach((c: any) => {
+                                if (c.types.includes('country')) country = c.long_name;
+                                if (c.types.includes('administrative_area_level_1')) {
+                                    if (c.long_name.includes('Hhohho')) region = Region.Hhohho;
+                                    else if (c.long_name.includes('Manzini')) region = Region.Manzini;
+                                    else if (c.long_name.includes('Shiselweni')) region = Region.Shiselweni;
+                                    else if (c.long_name.includes('Lubombo')) region = Region.Lubombo;
+                                }
+                                if (c.types.includes('locality') || c.types.includes('administrative_area_level_2')) tinkhundla = c.long_name;
+                            });
+                        }
+                    } catch (err) {
+                        console.error("Geocoding Parse Error:", err);
+                    } finally {
+                        const shortUserId = scopeId.toString().slice(-4).toUpperCase();
+                        const timestamp = Date.now().toString().slice(-4);
+                        const entNumber = isExtension ? `SVC-${shortUserId}-${timestamp}` : `ENT-${shortUserId}-${timestamp}`;
+                        
+                        setNewEnterprise({ name: '', region, tinkhundla, lat: lat.toFixed(6), lng: lng.toFixed(6), address, country, closestPlace, entNumber });
+                        setIsResolvingGIS(false); 
+                        setIsPlacingMode(false); 
+                        setShowEnterpriseModal(true);
                     }
-                    const shortUserId = scopeId.toString().slice(-4).toUpperCase();
-                    const timestamp = Date.now().toString().slice(-4);
-                    const entNumber = isExtension ? `SVC-${shortUserId}-${timestamp}` : `ENT-${shortUserId}-${timestamp}`;
-                    setNewEnterprise({ name: '', region, tinkhundla, lat: lat.toFixed(6), lng: lng.toFixed(6), address, country, closestPlace, entNumber });
-                    setIsResolvingGIS(false); setIsPlacingMode(false); setShowEnterpriseModal(true);
                 });
             });
 
@@ -297,13 +372,16 @@ const Production: React.FC<ProductionProps> = ({
                 const path = polygon.getPath().getArray().map((p: any) => ({ lat: p.lat(), lng: p.lng() }));
                 const areaSqm = (window as any).google.maps.geometry.spherical.computeArea(polygon.getPath());
                 dm.setDrawingMode(null); setIsTracing(false);
-                setNewUnit({ id: '', name: '', unitNumber: isExtension ? `NODE-${Date.now().toString().slice(-4)}` : `UNIT-${Date.now().toString().slice(-4)}`, area: (areaSqm / 10000).toFixed(2), height: 1.2, costPerHour: '', supervisor: '', path });
+                setNewUnit({ id: '', name: '', unitNumber: isExtension ? `NODE-${Date.now().toString().slice(-4)}` : `UNIT-${Date.now().toString().slice(-4)}`, area: (areaSqm / 10000).toFixed(2), height: 10, costPerHour: '', supervisor: '', path });
                 setShowUnitModal(true); polygon.setMap(null); 
             });
         }
+
+        // Always sync markers and polygons to current enterprise state
         markersRef.current.forEach(m => m.setMap(null));
         polygonsRef.current.forEach(p => p.setMap(null));
         markersRef.current = []; polygonsRef.current = [];
+        
         enterprises.forEach(ent => {
             const isSelected = ent.id === selectedEntId;
             const isExtensionNode = ent.entNumber?.startsWith('SVC');
@@ -314,21 +392,21 @@ const Production: React.FC<ProductionProps> = ({
                 icon: { url: isExtensionNode ? 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png' : isSelected ? 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', scaledSize: new (window as any).google.maps.Size(46, 46), labelOrigin: new (window as any).google.maps.Point(23, -14) }
             });
             marker.addListener('click', () => { 
-              setSelectedEntId(ent.id); 
-              setIsTracing(true);
-              if (drawingManager) {
-                  drawingManager.setDrawingMode((window as any).google.maps.drawing.OverlayType.POLYGON);
-              }
+                startTracing(ent.id);
             });
             markersRef.current.push(marker);
             ent.units?.forEach((unit: any) => {
                 const poly = new (window as any).google.maps.Polygon({ paths: unit.path, strokeColor: isExtensionNode ? '#3b82f6' : '#FBBF24', strokeWeight: 4, fillColor: isExtensionNode ? '#1e3a8a' : '#1B4D3E', fillOpacity: 0.4, map, zIndex: 1 });
-                poly.addListener('click', () => { setSelectedEntId(ent.id); setEditingUnitId(unit.id); setNewUnit({ ...unit, height: unit.height || 1.2 }); setShowUnitModal(true); });
+                poly.addListener('click', () => { 
+                    handleEditUnit(ent.id, unit);
+                });
                 polygonsRef.current.push(poly);
             });
         });
+
+        // Pan if needed
         if (selectedEnterprise && !isPlacingMode && !isTracing && !showEnterpriseModal && !isLoading) {
-            map.panTo(selectedEnterprise.gps); if (map.getZoom() < 16) map.setZoom(17);
+            map.panTo(selectedEnterprise.gps);
         }
     }
   }, [activeTab, googleApiLoaded, selectedEntId, enterprises, mapInstance, isTracing, drawingManager, selectedEnterprise, showEnterpriseModal, isLoading]);
@@ -340,12 +418,16 @@ const Production: React.FC<ProductionProps> = ({
           gps: { lat: parseFloat(newEnterprise.lat), lng: parseFloat(newEnterprise.lng) },
           ownerId: user?.id, 
           organizationId: user?.organizationId || '',
-          units: editingEntId ? selectedEnterprise?.units : [], resources: editingEntId ? selectedEnterprise?.resources : [], processes: editingEntId ? selectedEnterprise?.processes : [], operations: editingEntId ? selectedEnterprise?.operations : [], usageLogs: editingEntId ? selectedEnterprise?.usageLogs : []
+          units: editingEntId ? selectedEnterprise?.units : [], 
+          resources: editingEntId ? selectedEnterprise?.resources : [], 
+          processes: editingEntId ? selectedEnterprise?.processes : [], 
+          operations: editingEntId ? selectedEnterprise?.operations : [], 
+          usageLogs: editingEntId ? selectedEnterprise?.usageLogs : []
       };
       let finalId = editingEntId;
       if (editingEntId) await db.update<any>(Table.Enterprises, editingEntId, entData);
       else { const inserted = await db.insert<any>(Table.Enterprises, entData); finalId = inserted.id; }
-      setShowEnterpriseModal(false); setEditingEntId(null); await loadAllData(finalId);
+      setShowEnterpriseModal(false); setEditingEntId(null); await loadAllData(finalId!);
   };
 
   const handleSaveUnit = async () => {
@@ -399,94 +481,67 @@ const Production: React.FC<ProductionProps> = ({
     setShowHarvestModal(false); setFinishingOp(null); await loadAllData(selectedEntId);
   };
 
-  const renderInventory = () => (
-      <div className="space-y-4 animate-fade-in pb-20">
-          <div className="bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex items-center gap-4">
-                  <div className="p-2 bg-[#1B4D3E]/10 text-[#1B4D3E] rounded-xl"><Package size={20}/></div>
-                  <div className="flex gap-2">
-                      <button onClick={() => setInventorySubTab('ASSETS')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${inventorySubTab === 'ASSETS' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-400 hover:text-[#1B4D3E]'}`}>{isExtension ? 'Support Kit' : 'Assets'}</button>
-                      <button onClick={() => setInventorySubTab('LOGS')} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${inventorySubTab === 'LOGS' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-400 hover:text-[#1B4D3E]'}`}>Utilization</button>
-                  </div>
-              </div>
-              <div className="flex gap-2">
-                  <button onClick={() => setShowUsageModal(true)} disabled={!selectedEntId || selectedEnterprise?.resources?.length === 0} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm disabled:opacity-30 hover:bg-emerald-700 transition-colors"><Calculator size={14}/> Log Intake</button>
-                  <button onClick={() => { setActiveUnitForInventory(null); setShowAssetModal(true); }} disabled={!selectedEntId} className="px-5 py-2.5 bg-[#1B4D3E] text-white rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center gap-2 shadow-sm disabled:opacity-30 hover:bg-[#143d31] transition-colors"><Plus size={14}/> {isExtension ? 'Add Resource' : 'Add Asset'}</button>
-              </div>
-          </div>
-          {inventorySubTab === 'ASSETS' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {selectedEnterprise?.resources?.map((res: Resource) => (
-                      <div key={res.id} className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between h-56">
-                          <div>
-                              <div className="flex justify-between items-start mb-2">
-                                  <div className={`p-2.5 rounded-xl ${res.type === ResourceType.Personnel ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-600'}`}>
-                                      {res.type === ResourceType.Machinery && <Tractor size={18}/>}
-                                      {res.type === ResourceType.Equipment && <Wrench size={18}/>}
-                                      {res.type === ResourceType.Personnel && <GraduationCap size={18}/>}
-                                      {res.type === ResourceType.Consumable && <Droplets size={18}/>}
-                                  </div>
-                                  <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase ${res.status === 'Available' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{res.status}</span>
-                              </div>
-                              <h4 className="font-black text-slate-800 text-sm truncate">{res.name}</h4>
-                              <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest truncate">{res.category}</p>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-50">
-                              <div><p className="text-[8px] font-black text-slate-300 uppercase">Util</p><p className="text-[11px] font-black text-slate-700">{res.type === ResourceType.Consumable ? `${res.quantity}` : `${res.totalUsageHours || 0}H`}</p></div>
-                              <div className="text-right"><p className="text-[8px] font-black text-slate-300 uppercase">Usage Rate</p><p className="text-[11px] font-black text-[#1B4D3E]">E {res.unitCost.toFixed(2)}</p></div>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-          ) : (
-              <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm h-[calc(100vh-320px)] overflow-y-auto no-scrollbar">
-                  <table className="w-full text-left border-collapse text-sm">
-                      <thead className="bg-[#1B4D3E] text-white uppercase text-[8px] font-black tracking-widest sticky top-0">
-                          <tr><th className="p-4">Date</th><th className="p-4">Node</th><th className="p-4 text-center">Amount</th><th className="p-4 text-right">Cost</th></tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 font-medium">
-                          {selectedEnterprise?.usageLogs?.map((log: ResourceLog) => (
-                              <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                                  <td className="p-4 text-[10px] font-black text-slate-400">{new Date(log.timestamp).toLocaleDateString()}</td>
-                                  <td className="p-4 text-slate-700 font-bold">{log.resourceName}</td>
-                                  <td className="p-4 text-center text-slate-600">{log.type === ResourceType.Consumable ? `${log.quantityUsed}` : `${log.hoursUsed}h`}</td>
-                                  <td className="p-4 text-right font-black text-emerald-700">E {log.attributedCost.toLocaleString()}</td>
-                              </tr>
-                          ))}
-                      </tbody>
-                  </table>
-              </div>
-          )}
-      </div>
-  );
+  const estimatedVolume = useMemo(() => {
+    const area = parseFloat(newUnit.area) || 0;
+    const h = parseFloat(newUnit.height as any) || 0;
+    return (area * 10000 * h).toLocaleString();
+  }, [newUnit.area, newUnit.height]);
 
-  const renderCalendar = () => {
-    const sortedOps = [...(selectedEnterprise?.operations || [])].sort((a, b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime());
+  const renderOperations = () => {
+    if (!selectedEnterprise) return <div className="text-center py-20 opacity-30 flex flex-col items-center gap-2"><Layers size={48}/><p className="text-sm font-black uppercase">Select an Enterprise Node</p></div>;
     
+    const ops = (selectedEnterprise.operations || []) as Operation[];
+
     return (
-        <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm h-[calc(100vh-280px)] overflow-y-auto no-scrollbar animate-fade-in">
-            <h3 className="text-sm font-black text-[#1B4D3E] uppercase tracking-widest mb-8 flex items-center gap-3">
-                <CalendarDays size={20}/> Agenda View
-            </h3>
-            <div className="space-y-6 relative border-l-2 border-slate-100 pl-8 ml-4">
-                {sortedOps.length > 0 ? sortedOps.map((op, idx) => (
-                    <div key={op.id} className="relative group">
-                        <div className="absolute -left-[41px] top-1.5 w-4 h-4 rounded-full border-4 border-white bg-[#1B4D3E] shadow-sm group-hover:scale-125 transition-transform"></div>
-                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-emerald-200 transition-all">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-[10px] font-black text-[#1B4D3E] uppercase tracking-widest">{new Date(op.startDateTime).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
-                                    <h4 className="text-sm font-black text-slate-800 mt-1">{op.activity}</h4>
-                                    <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase flex items-center gap-1"><MapPin size={10}/> {op.field}</p>
-                                </div>
-                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${op.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{op.status}</span>
+        <div className="space-y-6 animate-fade-in pb-20">
+            <div className="flex justify-between items-center bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><ClipboardList size={20}/></div>
+                    <div>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-slate-800">National Cycle Logs</h4>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Audit Trail of {selectedEnterprise.name}</p>
+                    </div>
+                </div>
+                <button onClick={() => setShowOpModal(true)} className="px-5 py-2.5 bg-[#1B4D3E] text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 hover:bg-emerald-900 transition-all"><Plus size={14}/> Log Activity</button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+                {ops.length > 0 ? ops.sort((a,b) => new Date(b.startDateTime).getTime() - new Date(a.startDateTime).getTime()).map(op => (
+                    <div key={op.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all group flex flex-col md:flex-row gap-6 items-start md:items-center">
+                        <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-3">
+                                <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${
+                                    op.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 
+                                    op.status === 'In Progress' ? 'bg-indigo-50 text-indigo-600 animate-pulse' : 
+                                    'bg-slate-50 text-slate-400'
+                                }`}>{op.status}</span>
+                                <h5 className="text-sm font-black text-slate-800">{op.activity}</h5>
                             </div>
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase"><MapIcon size={12}/> {op.field}</div>
+                                <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase"><CalendarIcon size={12}/> {new Date(op.startDateTime).toLocaleDateString()}</div>
+                                <div className="flex items-center gap-2 text-[9px] font-black text-indigo-600 uppercase"><Wallet size={12}/> E {op.accumulatedCost?.toLocaleString() || 0}</div>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-50 rounded-full overflow-hidden">
+                                <div className={`h-full transition-all duration-1000 ${op.status === 'Completed' ? 'bg-emerald-500' : 'bg-[#FBBF24]'}`} style={{ width: `${op.progress}%` }} />
+                            </div>
+                        </div>
+                        <div className="flex gap-2 w-full md:w-auto">
+                            {op.status !== 'Completed' && (
+                                <button 
+                                    onClick={() => { setFinishingOp(op); setShowHarvestModal(true); }}
+                                    className="flex-1 md:flex-none px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <TrendingUp size={14}/> Finalize
+                                </button>
+                            )}
+                            <button className="p-2.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"><Edit size={16}/></button>
                         </div>
                     </div>
                 )) : (
-                    <div className="py-20 text-center">
-                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200 mb-4"><CalendarIcon size={32}/></div>
-                        <p className="text-xs font-black text-slate-300 uppercase tracking-widest">No nodes in chronological sequence</p>
+                    <div className="py-20 text-center space-y-4">
+                        <Archive className="mx-auto text-slate-200" size={64}/>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No Cycles Logged in Node</p>
                     </div>
                 )}
             </div>
@@ -494,77 +549,116 @@ const Production: React.FC<ProductionProps> = ({
     );
   };
 
-  const renderReports = () => {
-    const ops = selectedEnterprise?.operations || [];
-    const totalBeneficiaries = ops.reduce((s: number, o: any) => s + (o.beneficiariesReached || 0), 0);
-    const totalCost = ops.reduce((s: number, o: any) => s + (o.accumulatedCost || 0), 0);
-    
-    // Aggregates for Extension
-    const reachData = [
-        { name: 'Jan', value: Math.floor(totalBeneficiaries * 0.1) },
-        { name: 'Feb', value: Math.floor(totalBeneficiaries * 0.3) },
-        { name: 'Mar', value: Math.floor(totalBeneficiaries * 0.6) }
-    ];
+  const renderCalendar = () => {
+      const scheduled = enterprises.flatMap(ent => (ent.operations || []).filter((o:any) => o.status === 'Scheduled'));
+      
+      return (
+          <div className="space-y-6 animate-fade-in max-w-4xl mx-auto">
+              <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden">
+                  <div className="relative z-10 flex items-center gap-6">
+                      <div className="p-4 bg-white/10 rounded-2xl border border-white/10"><CalendarDays size={32} className="text-[#FBBF24]"/></div>
+                      <div>
+                          <h3 className="text-2xl font-black uppercase tracking-tight">National Agenda</h3>
+                          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Institutional Chronology Node</p>
+                      </div>
+                  </div>
+                  <CalendarIcon size={200} className="absolute -bottom-20 -right-20 text-white/5 pointer-events-none rotate-12" />
+              </div>
 
-    const typeDistribution = [
-        { name: 'Training', value: ops.filter((o:any)=>o.type==='Training').length, color: '#1B4D3E' },
-        { name: 'Farm Visits', value: ops.filter((o:any)=>o.type==='FarmVisit').length, color: '#FBBF24' },
-        { name: 'Advisory', value: ops.filter((o:any)=>o.type==='Advisory').length, color: '#3b82f6' }
-    ].filter(v => v.value > 0);
+              <div className="space-y-4">
+                  {scheduled.length > 0 ? scheduled.sort((a,b) => new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime()).map(op => (
+                      <div key={op.id} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col md:flex-row gap-8 items-center group hover:shadow-xl transition-all">
+                          <div className="bg-emerald-50 text-emerald-700 w-20 h-20 rounded-[1.5rem] flex flex-col items-center justify-center shrink-0">
+                              <span className="text-[10px] font-black uppercase opacity-50">{new Date(op.startDateTime).toLocaleString('default', { month: 'short' })}</span>
+                              <span className="text-2xl font-black">{new Date(op.startDateTime).getDate()}</span>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                              <h4 className="text-xl font-black text-slate-800">{op.activity}</h4>
+                              <div className="flex gap-4 items-center">
+                                  <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase"><MapIcon size={14}/> {op.field}</span>
+                                  <span className="flex items-center gap-1.5 text-[10px] font-black text-[#1B4D3E] uppercase"><Timer size={14}/> {new Date(op.startDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                          </div>
+                          <button className="px-8 py-3 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl group-hover:scale-105 transition-all">Start Node</button>
+                      </div>
+                  )) : (
+                      <div className="py-32 text-center space-y-6">
+                          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200 border-2 border-dashed border-slate-100"><Check size={40}/></div>
+                          <p className="text-sm font-black text-slate-300 uppercase tracking-widest">All Cycles Active or Finalized</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
+  };
+
+  const renderReports = () => {
+    if (!selectedEnterprise) return <div className="text-center py-20 opacity-30 flex flex-col items-center gap-2"><BarChart3 size={48}/><p className="text-sm font-black uppercase">Select Enterprise for Analytics</p></div>;
+
+    const opCosts = (selectedEnterprise.operations || []).map((o: any) => ({
+        name: o.activity,
+        cost: o.accumulatedCost || 0
+    })).slice(0, 5);
+
+    const areaData = (selectedEnterprise.units || []).map((u: any) => ({
+        name: u.name,
+        value: parseFloat(u.area) || 0
+    }));
+
+    const COLORS = ['#1B4D3E', '#FBBF24', '#4F46E5', '#EF4444', '#10B981'];
 
     return (
-        <div className="space-y-6 animate-fade-in pb-20">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cumulative Impact</p>
-                    <div className="mt-4 flex items-end justify-between">
-                        <h3 className="text-3xl font-black text-[#1B4D3E]">{isExtension ? totalBeneficiaries : ops.length} <span className="text-xs font-bold text-slate-300">{isExtension ? 'People' : 'Batches'}</span></h3>
-                        <div className="flex items-center text-emerald-500 text-[10px] font-black bg-emerald-50 px-2 py-1 rounded-lg gap-1"><ArrowUpRight size={12}/> +12%</div>
+        <div className="space-y-8 animate-fade-in pb-20">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between h-40">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Node Valuation</p>
+                    <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-[#1B4D3E]">E {selectedEnterprise.operations?.reduce((s:number, o:any) => s + (o.accumulatedCost || 0), 0).toLocaleString()}</h3>
+                        <TrendingUp className="text-emerald-500" size={24}/>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Budget Utilization</p>
-                    <div className="mt-4 flex items-end justify-between">
-                        <h3 className="text-3xl font-black text-slate-800">E {totalCost.toLocaleString()}</h3>
-                        <div className="flex items-center text-amber-500 text-[10px] font-black bg-amber-50 px-2 py-1 rounded-lg gap-1"><History size={12}/> Vetted</div>
+                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between h-40">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Unit Footprint</p>
+                    <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-indigo-600">{selectedEnterprise.units?.length || 0} <span className="text-xs font-bold text-slate-300">Nodes</span></h3>
+                        <Layers2 className="text-indigo-400" size={24}/>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col justify-between">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Node Efficiency</p>
-                    <div className="mt-4 flex items-end justify-between">
-                        <h3 className="text-3xl font-black text-indigo-700">94%</h3>
-                        <div className="flex items-center text-indigo-500 text-[10px] font-black bg-indigo-50 px-2 py-1 rounded-lg gap-1"><TrendingUp size={12}/> High</div>
+                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-between h-40">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aggregate Yield</p>
+                    <div className="flex items-end justify-between">
+                        <h3 className="text-3xl font-black text-[#FBBF24]">12.4k <span className="text-xs font-bold text-slate-300">Tons</span></h3>
+                        <Sprout className="text-[#FBBF24]" size={24}/>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">{isExtension ? 'Outreach Growth' : 'Production Intensity'}</h4>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm h-[450px] flex flex-col">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-10">Institutional Cost Distribution</h4>
                     <div className="flex-1">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={reachData}>
+                            <BarChart data={opCosts}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
-                                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 900, fill: '#94a3b8'}} />
-                                <RechartsTooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                                <Bar dataKey="value" fill="#1B4D3E" radius={[4, 4, 0, 0]} barSize={40} />
+                                <XAxis dataKey="name" fontSize={10} tick={{fill: '#94a3b8', fontWeight: '800'}} />
+                                <YAxis fontSize={10} tick={{fill: '#94a3b8', fontWeight: '800'}} />
+                                <RechartsTooltip contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1)'}} />
+                                <Bar dataKey="cost" fill="#1B4D3E" radius={[10, 10, 0, 0]} barSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
-                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8">Service Distribution</h4>
+
+                <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-sm h-[450px] flex flex-col">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-10">Spatial Area Allocation</h4>
                     <div className="flex-1">
                         <ResponsiveContainer width="100%" height="100%">
                             <RePieChart>
-                                <Pie data={typeDistribution} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
-                                    {typeDistribution.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
+                                <Pie data={areaData} innerRadius={80} outerRadius={120} paddingAngle={5} dataKey="value">
+                                    {areaData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                                 </Pie>
                                 <RechartsTooltip />
-                                <Legend verticalAlign="bottom" height={36}/>
+                                <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{paddingTop: '20px', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase'}} />
                             </RePieChart>
                         </ResponsiveContainer>
                     </div>
@@ -578,14 +672,17 @@ const Production: React.FC<ProductionProps> = ({
     <div className="space-y-4 animate-fade-in h-full overflow-hidden flex flex-col">
         <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden shrink-0">
             <div className="flex items-center gap-6 p-3 px-6 overflow-x-auto no-scrollbar">
-                {(['ESTABLISHMENT', 'INVENTORY', 'OPERATIONS', 'CALENDAR', 'REPORTS'] as const).map((tab) => (
+                {(['REPORTS', 'SETUP', 'RESOURCES', 'OPERATIONS', 'CALENDAR'] as const).map((tab) => (
                     <button key={tab} onClick={() => setActiveTab(tab)} className={`flex items-center gap-2 py-2 text-[11px] font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === tab ? 'text-[#1B4D3E]' : 'text-slate-400'}`}>
-                        {tab === 'ESTABLISHMENT' && <MapIcon size={14}/>}
-                        {tab === 'INVENTORY' && <GraduationCap size={14}/>}
+                        {tab === 'SETUP' && <MapIcon size={14}/>}
+                        {tab === 'RESOURCES' && <GraduationCap size={14}/>}
                         {tab === 'OPERATIONS' && <Zap size={14}/>}
                         {tab === 'CALENDAR' && <CalendarIcon size={14}/>}
                         {tab === 'REPORTS' && <BarChart3 size={14}/>}
-                        {tabLabels[tab]}
+                        {tab === 'SETUP' ? 'Setup' : 
+                         tab === 'RESOURCES' ? (isExtension ? 'Training Kit' : 'Resources') :
+                         tab === 'OPERATIONS' ? (isExtension ? 'Outreach Logs' : 'Cycle Logs') :
+                         tab === 'CALENDAR' ? 'Schedule' : (isExtension ? 'Reach Analytics' : 'Performance')}
                         {activeTab === tab && (<div className="absolute bottom-0 left-0 w-full h-1 bg-[#FBBF24] rounded-full" />)}
                     </button>
                 ))}
@@ -593,177 +690,328 @@ const Production: React.FC<ProductionProps> = ({
         </div>
 
         <div className="flex-1 overflow-hidden">
-            {activeTab === 'ESTABLISHMENT' && (
+            {activeTab === 'SETUP' && (
                 <div className="space-y-4 animate-fade-in flex flex-col h-full overflow-hidden pb-10">
                     <div className="flex justify-between items-center bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm shrink-0">
                         <div className="flex items-center gap-4"><div className="p-2 bg-blue-50 rounded-xl text-blue-600"><MapPin size={20}/></div><h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">{isExtension ? 'Regional Jurisdiction' : 'Spatial Infrastructure'}</h3></div>
                         <div className="flex gap-2">
-                            <button onClick={() => setIsPlacingMode(!isPlacingMode)} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-sm ${isPlacingMode ? 'bg-orange-500 text-white' : 'bg-[#1B4D3E] text-white'}`}>{isPlacingMode ? 'Cancel' : (isExtension ? 'Add Hub' : 'New Hub')}</button>
-                            <button disabled={!selectedEntId} onClick={() => { setIsTracing(true); if (drawingManager) drawingManager.setDrawingMode((window as any).google.maps.drawing.OverlayType.POLYGON); }} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-sm ${isTracing ? 'bg-rose-50 text-white' : 'bg-[#FBBF24] text-[#1B4D3E] disabled:opacity-30'}`}>{isTracing ? 'Cancel' : 'Trace Unit'}</button>
+                            <button onClick={() => { setIsPlacingMode(!isPlacingMode); setIsTracing(false); if(drawingManager) drawingManager.setDrawingMode(null); }} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-sm ${isPlacingMode ? 'bg-orange-500 text-white' : 'bg-[#1B4D3E] text-white'}`}>{isPlacingMode ? 'Cancel' : (isExtension ? 'Add Hub' : 'New Hub')}</button>
+                            <button disabled={!selectedEntId} onClick={() => { setIsTracing(!isTracing); setIsPlacingMode(false); if (drawingManager) drawingManager.setDrawingMode(!isTracing ? (window as any).google.maps.drawing.OverlayType.POLYGON : null); }} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-sm ${isTracing ? 'bg-rose-500 text-white' : 'bg-[#FBBF24] text-[#1B4D3E] disabled:opacity-30'}`}>{isTracing ? 'Cancel' : 'Trace Unit'}</button>
                         </div>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1 overflow-hidden">
                         <div ref={mapContainerRef} className={`lg:col-span-3 relative bg-white rounded-[2rem] border border-slate-100 shadow-lg overflow-hidden h-[400px] lg:h-full group/map ${isFullscreen ? 'fixed inset-0 z-[200] !m-0 !rounded-none' : ''}`}>
-                            {(isLoading || isResolvingGIS) && (<div className="absolute inset-0 z-40 bg-slate-100/50 backdrop-blur-sm flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin text-[#1B4D3E]" size={32} /></div>)}
+                            {(isLoading || isResolvingGIS) && (<div className="absolute inset-0 z-40 bg-slate-100/50 backdrop-blur-sm flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin text-[#1B4D3E]" size={32} />{isResolvingGIS && <span className="text-[10px] font-black uppercase tracking-widest text-[#1B4D3E]">Analyzing GIS Node...</span>}</div>)}
                             <div ref={mapRef} className="w-full h-full z-10 bg-slate-200" />
+                            
+                            {isPlacingMode && (
+                              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 px-6 py-3 bg-orange-600 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-2xl animate-bounce flex items-center gap-3 border-2 border-white">
+                                <Target size={16} /> Tap Map to Place Node
+                              </div>
+                            )}
+
                             <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-                                <button onClick={toggleFullscreen} className="p-3 bg-white/95 text-[#1B4D3E] rounded-xl shadow-xl hover:bg-emerald-50 transition-all border border-slate-200"><Maximize size={20}/></button>
+                                <button onClick={handleLocateMe} className="p-3 bg-white text-[#1B4D3E] rounded-xl shadow-xl hover:bg-emerald-50 transition-all border border-slate-200" title="Find my location"><LocateFixed size={20}/></button>
+                                <button onClick={toggleFullscreen} className="p-3 bg-white text-[#1B4D3E] rounded-xl shadow-xl hover:bg-emerald-50 transition-all border border-slate-200" title="Full Screen Map"><Maximize size={20}/></button>
                             </div>
                         </div>
                         <div className="lg:col-span-1 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col overflow-hidden">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Building2 size={12}/> Regional Nodes</h4>
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Building2 size={12}/> {isExtension ? 'Extension Hubs' : 'Production Hubs'}</h4>
                             <div className="flex-1 overflow-y-auto no-scrollbar space-y-3">
-                                {enterprises.map(ent => (
-                                    <button key={ent.id} onClick={() => setSelectedEntId(ent.id)} className={`w-full text-left p-4 rounded-2xl border transition-all ${selectedEntId === ent.id ? 'bg-[#1B4D3E] border-[#1B4D3E] text-white shadow-lg' : 'bg-slate-50 border-slate-100'}`}><h5 className="font-black text-xs truncate">{ent.name}</h5><p className={`text-[8px] font-black uppercase mt-0.5 ${selectedEntId === ent.id ? 'text-[#FBBF24]' : 'text-slate-400'}`}>{ent.region}</p></button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'INVENTORY' && renderInventory()}
-            
-            {activeTab === 'OPERATIONS' && (
-                <div className="space-y-4 animate-fade-in pb-20">
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                        <div className="lg:col-span-1 space-y-4">
-                            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-                                <h3 className="text-sm font-black text-[#1B4D3E] uppercase tracking-widest">Outreach Reach</h3>
-                                <div className="space-y-3">
-                                    <div className="p-3.5 bg-emerald-50 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-2 text-emerald-700"><Users size={16}/><span className="text-[9px] font-black uppercase">Beneficiaries</span></div><span className="text-sm font-black text-emerald-800">{selectedEnterprise?.operations?.reduce((s:number,o:any)=>s+(o.beneficiariesReached||0),0)||0}</span></div>
-                                    <div className="p-3.5 bg-indigo-50 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-2 text-indigo-700"><Clock size={16}/><span className="text-[9px] font-black uppercase">Service Hours</span></div><span className="text-sm font-black text-indigo-800">{selectedEnterprise?.operations?.length * 4 || 0}</span></div>
-                                </div>
-                                <button onClick={() => setShowOpModal(true)} disabled={!selectedEntId} className="w-full py-4 bg-[#1B4D3E] text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:shadow-xl transition-all flex items-center justify-center gap-3"><Zap size={14} className="text-[#FBBF24]"/> Log Field Outreach</button>
-                            </div>
-                        </div>
-                        <div className="lg:col-span-3 space-y-3 h-[calc(100vh-320px)] overflow-y-auto no-scrollbar pr-1">
-                            {selectedEnterprise?.operations?.map((op: Operation) => (
-                                <div key={op.id} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center gap-4 group">
-                                    <div className={`p-3 rounded-xl transition-colors ${op.type === 'Training' ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-400'}`}><Microscope size={22}/></div>
-                                    <div className="flex-1 overflow-hidden">
-                                        <h4 className="font-black text-slate-800 text-sm truncate">{op.activity}</h4>
-                                        <div className="flex items-center gap-3 mt-1">
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[120px]"><MapPin size={8} className="inline mr-1"/>{op.field}</p>
-                                            <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${op.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{op.status}</span>
-                                            {isExtension && <span className="text-[8px] font-black text-blue-500 uppercase">{op.beneficiariesReached || 0} People</span>}
+                                {enterprises.length > 0 ? enterprises.map(ent => (
+                                    <div key={ent.id} className="space-y-1">
+                                        <div className="group relative">
+                                            <button onClick={() => startTracing(ent.id)} className={`w-full text-left p-4 rounded-2xl border transition-all ${selectedEntId === ent.id ? 'bg-[#1B4D3E] border-[#1B4D3E] text-white shadow-lg' : 'bg-slate-50 border-slate-100'}`}>
+                                                <h5 className="font-black text-xs truncate pr-6">{ent.name}</h5>
+                                                <p className={`text-[8px] font-black uppercase mt-0.5 ${selectedEntId === ent.id ? 'text-[#FBBF24]' : 'text-slate-400'}`}>{ent.region} • {ent.tinkhundla || 'General'}</p>
+                                            </button>
+                                            <button onClick={() => handleEditEnterprise(ent)} className={`absolute top-4 right-3 p-1 rounded-lg transition-all ${selectedEntId === ent.id ? 'text-white/50 hover:text-white' : 'text-slate-300 hover:text-[#1B4D3E]'}`}>
+                                                <Edit size={14}/>
+                                            </button>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => { setUsageLogEntry({...usageLogEntry, operationId: op.id}); setShowUsageModal(true); }} className="p-2 text-slate-300 hover:text-indigo-600 transition-all"><Hammer size={16}/></button>
-                                        {isExtension && op.status !== 'Completed' && (
-                                            <button onClick={() => { setFinishingOp(op); setHarvestForm(prev => ({ ...prev, name: op.activity })); setShowHarvestModal(true); }} className="p-2 text-emerald-500 hover:text-emerald-700 transition-all"><GraduationCap size={16}/></button>
+                                        
+                                        {/* Nested Units List */}
+                                        {ent.units?.length > 0 && (
+                                          <div className="pl-4 space-y-1.5 py-1">
+                                            {ent.units.map((unit: any) => (
+                                              <div key={unit.id} className="flex items-center gap-2 bg-slate-50/50 p-2 rounded-xl border border-slate-100 group">
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-[9px] font-black text-slate-700 truncate">{unit.name}</p>
+                                                  <p className="text-[7px] font-bold text-slate-400 uppercase">{unit.area} Ha</p>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                  <button onClick={() => handleAddResourceToUnit(ent.id, unit)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Add Initial Resource"><Plus size={12}/></button>
+                                                  <button onClick={() => handleEditUnit(ent.id, unit)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" title="Edit Unit"><Edit3 size={12}/></button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
                                         )}
                                     </div>
-                                </div>
-                            ))}
+                                )) : (
+                                  <div className="text-center py-10 opacity-30 flex flex-col items-center gap-2">
+                                    <MapPinOff size={24} />
+                                    <p className="text-[9px] font-black uppercase">No Nodes Registered</p>
+                                  </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
+            {activeTab === 'RESOURCES' && (
+                <div className="space-y-6 animate-fade-in flex flex-col h-full overflow-hidden">
+                    <div className="flex justify-between items-center bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm shrink-0">
+                        <div className="flex gap-4">
+                            {(['RESOURCES', 'LOGS'] as const).map(sub => (
+                                <button key={sub} onClick={() => setInventorySubTab(sub)} className={`px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all ${inventorySubTab === sub ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>{sub === 'RESOURCES' ? (isExtension ? 'Training Kit' : 'RESOURCES') : 'Usage Logs'}</button>
+                            ))}
+                        </div>
+                        {inventorySubTab === 'RESOURCES' && (
+                             <button onClick={() => { setShowAssetModal(true); setActiveUnitForInventory(null); }} className="px-4 py-2 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-all flex items-center gap-2"><Plus size={14}/> Add Resource</button>
+                        )}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto no-scrollbar space-y-6 pb-20">
+                        {inventorySubTab === 'RESOURCES' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {(selectedEnterprise?.resources || []).map((res: Resource) => (
+                                    <div key={res.id} className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col">
+                                        <div className="h-40 bg-slate-100 relative">
+                                            {res.image ? <img src={res.image} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-slate-300"><Tractor size={48}/></div>}
+                                            <div className="absolute top-3 right-3 px-2 py-1 bg-white/90 rounded-lg text-[8px] font-black text-slate-500 uppercase border border-white/50">{res.type}</div>
+                                        </div>
+                                        <div className="p-6 flex-1 space-y-4">
+                                            <div>
+                                                <h5 className="font-black text-slate-800 text-sm truncate">{res.name}</h5>
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{res.category}</p>
+                                            </div>
+                                            <div className="flex justify-between items-center pt-4 border-t border-slate-50">
+                                                <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${res.status === 'Available' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{res.status}</span>
+                                                <p className="text-xs font-black text-indigo-600">E {res.unitCost?.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+            
+            {activeTab === 'OPERATIONS' && renderOperations()}
             {activeTab === 'CALENDAR' && renderCalendar()}
             {activeTab === 'REPORTS' && renderReports()}
         </div>
 
-        {showOpModal && (
-            <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
-                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
+        {/* Modals for Enterprise, Unit, Asset, Op, Harvest... */}
+        {showEnterpriseModal && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
                     <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Microscope size={22} className="text-[#FBBF24]"/></div>
-                            <h3 className="text-xl font-black">{isExtension ? 'Log Professional Service' : 'Initialize Task'}</h3>
-                        </div>
-                        <button onClick={() => setShowOpModal(false)}><X size={24}/></button>
-                    </div>
-                    <div className="p-8 space-y-4">
-                        <input value={newOp.activity} onChange={(e)=>setNewOp({...newOp, activity: e.target.value})} placeholder={isExtension ? "Service Goal (e.g. Pest Management Training)..." : "Activity Description..."} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-[#1B4D3E]/5" />
-                        <div className="grid grid-cols-2 gap-4">
-                            <select value={newOp.field} onChange={(e)=>setNewOp({...newOp, field: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
-                                <option value="">Select Target...</option>
-                                {selectedEnterprise?.units?.map((u: any) => <option key={u.id} value={u.name}>{u.name}</option>)}
-                            </select>
-                            <select value={newOp.type} onChange={(e:any)=>setNewOp({...newOp, type: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
-                                {isExtension ? (
-                                    <>
-                                        <option value="Training">Training Session</option>
-                                        <option value="FarmVisit">Farm Visit</option>
-                                        <option value="Advisory">Direct Advisory</option>
-                                    </>
-                                ) : (
-                                    <>
-                                        <option value="Production">Production</option>
-                                        <option value="Harvest">Harvest</option>
-                                    </>
-                                )}
-                            </select>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Commencement Date</label>
-                                <input type="date" value={newOp.startDateTime} onChange={(e)=>setNewOp({...newOp, startDateTime: e.target.value})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" />
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Building2 size={24} className="text-[#FBBF24]"/></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">{editingEntId ? 'Update Node details' : (isExtension ? 'Add Extension Hub' : 'Register Production Hub')}</h3>
+                                <p className="text-[10px] text-green-300 font-bold uppercase tracking-widest mt-1">National Registry Entry</p>
                             </div>
                         </div>
-                        {isExtension && <input type="number" value={newOp.beneficiariesReached} onChange={(e)=>setNewOp({...newOp, beneficiariesReached: parseInt(e.target.value)})} placeholder="Estimated Reach (Farmers)" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" />}
-                        <button onClick={handleSaveOp} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl mt-4 hover:bg-[#143d31]">Commit Log Node</button>
+                        <button onClick={() => { setShowEnterpriseModal(false); setEditingEntId(null); }}><X size={24}/></button>
+                    </div>
+                    <div className="p-8 space-y-5">
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Enterprise Name</label><input autoFocus value={newEnterprise.name} onChange={(e)=>setNewEnterprise({...newEnterprise, name: e.target.value})} placeholder="e.g. Dlamini Green Estate" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all" /></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Administrative Region</label><select value={newEnterprise.region} onChange={(e)=>setNewEnterprise({...newEnterprise, region: e.target.value as Region})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none"><option value={Region.Hhohho}>Hhohho</option><option value={Region.Manzini}>Manzini</option><option value={Region.Shiselweni}>Shiselweni</option><option value={Region.Lubombo}>Lubombo</option></select></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tinkhundla Node</label><input value={newEnterprise.tinkhundla} onChange={(e)=>setNewEnterprise({...newEnterprise, tinkhundla: e.target.value})} placeholder="Constituency" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                        </div>
+                        <div className="p-5 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-start gap-4">
+                          <MapPin size={20} className="text-emerald-600 mt-0.5" />
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">GIS Reference</p>
+                            <p className="text-[11px] text-emerald-700 font-bold leading-relaxed">{newEnterprise.address || 'Point established via GPS verification.'}</p>
+                            <p className="text-[9px] text-emerald-600/60 font-mono">{newEnterprise.lat}, {newEnterprise.lng}</p>
+                          </div>
+                        </div>
+                        <button onClick={handleAddEnterprise} disabled={!newEnterprise.name} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl mt-4 hover:bg-[#143d31] disabled:opacity-30 transition-all active:scale-95">{editingEntId ? 'Commit Update' : 'Commit Node to National Registry'}</button>
                     </div>
                 </div>
             </div>
         )}
 
-        {showHarvestModal && (
+        {showUnitModal && (
             <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
-                <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up">
+                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
+                    <div className="bg-emerald-800 p-8 text-white flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Layers2 size={24} className="text-emerald-400"/></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">{editingUnitId ? 'Update Production Unit' : (isExtension ? 'Add Outreach Node' : 'Register Production Unit')}</h3>
+                                <p className="text-[10px] text-emerald-300 font-bold uppercase tracking-widest mt-1">Spatial Resource Entry</p>
+                            </div>
+                        </div>
+                        <button onClick={() => { setShowUnitModal(false); setEditingUnitId(null); }}><X size={24}/></button>
+                    </div>
+                    <div className="p-8 space-y-5">
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Name / Identifier</label><input value={newUnit.name} onChange={(e)=>setNewUnit({...newUnit, name: e.target.value})} placeholder="e.g. Upper Greenhouse A" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all" /></div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Area (Hectares)</label><div className="relative"><Ruler className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/><input value={newUnit.area} onChange={(e)=>setNewUnit({...newUnit, area: e.target.value})} className="w-full pl-11 pr-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Height (Metres)</label><div className="relative"><BoxSelect className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/><input type="number" value={newUnit.height} onChange={(e)=>setNewUnit({...newUnit, height: parseFloat(e.target.value) || 0})} className="w-full pl-11 pr-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div></div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Registry Code</label><div className="relative"><Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16}/><input readOnly value={newUnit.unitNumber} className="w-full pl-11 pr-5 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl font-mono text-xs font-black text-slate-500" /></div></div>
+                        </div>
+
+                        <div className="p-5 bg-emerald-50 rounded-3xl border border-emerald-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-600 text-white rounded-xl shadow-sm"><HardHat size={18}/></div>
+                                <div>
+                                    <p className="text-[9px] font-black text-emerald-800 uppercase tracking-widest">Volumetric Capacity</p>
+                                    <p className="text-lg font-black text-emerald-900">{estimatedVolume} <span className="text-xs opacity-50 uppercase">m³</span></p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[8px] font-black text-emerald-600 uppercase tracking-tighter">Derived Estimate</p>
+                            </div>
+                        </div>
+
+                        {editingUnitId && (
+                           <button onClick={async () => {
+                               const ent = await db.getById<any>(Table.Enterprises, selectedEntId!);
+                               ent.units = ent.units.filter((u:any) => u.id !== editingUnitId);
+                               await db.update<any>(Table.Enterprises, selectedEntId!, { units: ent.units });
+                               setShowUnitModal(false); setEditingUnitId(null); await loadAllData(selectedEntId!);
+                           }} className="w-full py-3 text-rose-500 font-black uppercase text-[9px] tracking-widest hover:bg-rose-50 rounded-xl transition-all">Remove Spatial Node</button>
+                        )}
+                        <button onClick={handleSaveUnit} className="w-full py-5 bg-emerald-800 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl mt-4 hover:bg-emerald-900 transition-all">{editingUnitId ? 'Commit Changes' : 'Finalize Spatial Logic'}</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {showAssetModal && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">
+                    <div className="bg-indigo-900 p-8 text-white flex justify-between items-center shrink-0">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><PackagePlus size={24} className="text-[#FBBF24]"/></div>
+                            <div>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Institutional Resource</h3>
+                                <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest mt-1">Inventory Node Initialization</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowAssetModal(false)}><X size={24}/></button>
+                    </div>
+                    <div className="p-8 space-y-6 overflow-y-auto no-scrollbar">
+                        {activeUnitForInventory && (
+                          <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between">
+                            <div>
+                              <p className="text-[8px] font-black text-indigo-400 uppercase">Target Unit</p>
+                              <p className="text-xs font-black text-indigo-800 uppercase">{activeUnitForInventory.name}</p>
+                            </div>
+                            <HardHat size={16} className="text-indigo-600"/>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-6">
+                            <div className="w-32 h-32 rounded-[2rem] bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center relative overflow-hidden group hover:bg-slate-100 transition-all">
+                                {newAsset.image ? (
+                                    <img src={newAsset.image} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="flex flex-col items-center gap-1">
+                                        <Camera size={24} className="text-slate-300" />
+                                        <span className="text-[8px] font-black text-slate-400 uppercase">Snapshot</span>
+                                    </div>
+                                )}
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleImageUpload(e, 'asset')} />
+                            </div>
+                            <div className="flex-1 flex flex-col justify-center gap-3">
+                                <button 
+                                    onClick={handleResourceAIAnalyze}
+                                    disabled={!newAsset.image || isAnalyzingAsset}
+                                    className="w-full py-4 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm hover:bg-indigo-100 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isAnalyzingAsset ? <Loader2 size={16} className="animate-spin"/> : <Sparkles size={16}/>}
+                                    AI Scan Identity
+                                </button>
+                                <p className="text-[8px] text-slate-400 font-bold uppercase text-center px-4 leading-relaxed">
+                                    Analyze item vision to automatically extract technical metadata.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resource Name</label><input value={newAsset.name} onChange={(e)=>setNewAsset({...newAsset, name: e.target.value})} placeholder="e.g. Massey Ferguson Tractor" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all" /></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Type</label><select value={newAsset.type} onChange={(e)=>setNewAsset({...newAsset, type: e.target.value as ResourceType})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none"><option value={ResourceType.Machinery}>Machinery</option><option value={ResourceType.Equipment}>Equipment</option><option value={ResourceType.Personnel}>Personnel</option><option value={ResourceType.Consumable}>Consumable Input</option></select></div>
+                                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label><input value={newAsset.category} onChange={(e)=>setNewAsset({...newAsset, category: e.target.value})} placeholder="e.g. Tillage" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                            </div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Technical Specs</label><textarea value={newAsset.details} onChange={(e)=>setNewAsset({...newAsset, details: e.target.value})} className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl font-medium text-xs outline-none h-24 resize-none" placeholder="Describe resource attributes..." /></div>
+                        </div>
+
+                        <button onClick={handleSaveAsset} className="w-full py-5 bg-indigo-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl mt-4 hover:bg-indigo-950 transition-all">Commit to Node Inventory</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {showOpModal && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
                     <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><CheckCircle2 size={24} className="text-[#FBBF24]"/></div>
+                            <div className="p-3 bg-white/10 rounded-2xl border border-white/10"><Zap size={24} className="text-[#FBBF24]"/></div>
                             <div>
-                                <h3 className="text-xl font-black uppercase tracking-tight">{isExtension ? 'Verify Service Output' : 'Commodity Lifecycle'}</h3>
-                                <p className="text-[10px] text-green-300 font-black uppercase tracking-widest mt-1">{isExtension ? 'Published Knowledge Node' : 'Institutional Harvest Registry'}</p>
+                                <h3 className="text-xl font-black uppercase tracking-tight">Node Activity Log</h3>
+                                <p className="text-[10px] text-green-300 font-bold uppercase tracking-widest mt-1">Operational Cycle Entry</p>
                             </div>
                         </div>
-                        <button onClick={() => setShowHarvestModal(false)}><X size={24}/></button>
+                        <button onClick={() => setShowOpModal(false)}><X size={24}/></button>
                     </div>
-                    <div className="p-8 space-y-6 overflow-y-auto no-scrollbar max-h-[70vh]">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-6">
-                                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{isExtension ? 'Service Title' : 'Trade Label'}</label><input value={harvestForm.name} onChange={(e)=>setHarvestForm({...harvestForm, name: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{isExtension ? 'Impact Count' : 'Yield Qty'}</label><input type="number" value={harvestForm.quantity} onChange={(e)=>setHarvestForm({...harvestForm, quantity: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
-                                    <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fee (E)</label><input type="number" value={harvestForm.price} onChange={(e)=>setHarvestForm({...harvestForm, price: parseFloat(e.target.value)})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
-                                </div>
-                                <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Outcome Summary</label><textarea value={harvestForm.description} onChange={(e)=>setHarvestForm({...harvestForm, description: e.target.value})} className="w-full h-24 px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none resize-none" /></div>
-                            </div>
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Document Evidence</label>
-                                <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center relative overflow-hidden group">
-                                    {harvestForm.image ? (
-                                        <img src={harvestForm.image} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="text-center p-6">
-                                            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center mx-auto shadow-sm mb-4"><Camera size={24} className="text-slate-300"/></div>
-                                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Visual Verification</p>
-                                            <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleImageUpload(e, 'harvest')} />
-                                        </div>
-                                    )}
-                                </div>
+                    <div className="p-8 space-y-5">
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Action Description</label><input value={newOp.activity} onChange={(e)=>setNewOp({...newOp, activity: e.target.value})} placeholder="e.g. Basal Fertilizer Application" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all" /></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Target Unit</label><select value={newOp.field} onChange={(e)=>setNewOp({...newOp, field: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
+                                <option value="">Select Unit...</option>
+                                {(selectedEnterprise?.units || []).map((u:any) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                            </select></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Start Date</label><input type="date" value={newOp.startDateTime} onChange={(e)=>setNewOp({...newOp, startDateTime: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                        </div>
+                        <button onClick={handleSaveOp} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl mt-4 hover:bg-[#143d31] transition-all">Log Cycle Step</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {showHarvestModal && finishingOp && (
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
+                    <div className="bg-emerald-900 p-10 text-white flex justify-between items-center shrink-0">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-white/10 rounded-2xl border border-white/10"><Sprout size={32} className="text-[#FBBF24]"/></div>
+                            <div>
+                                <h3 className="text-2xl font-black uppercase tracking-tight">Harvest Node</h3>
+                                <p className="text-[10px] text-emerald-300 font-bold uppercase tracking-widest mt-1">Initializing Trade Hub Batch</p>
                             </div>
                         </div>
+                        <button onClick={() => setShowHarvestModal(false)}><X size={32}/></button>
                     </div>
-                    <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end">
-                        <button onClick={handleFinalizeHarvest} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center gap-3">
-                            <Save size={18}/> Publish Knowledge Package
+                    <div className="p-10 space-y-6">
+                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Produce Trade Name</label><input value={harvestForm.name} onChange={(e)=>setHarvestForm({...harvestForm, name: e.target.value})} placeholder="e.g. Grade A Yellow Maize" className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all" /></div>
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Yield Quantity</label><input type="number" value={harvestForm.quantity} onChange={(e)=>setHarvestForm({...harvestForm, quantity: parseFloat(e.target.value) || 0})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                            <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Unit Price (E)</label><input type="number" value={harvestForm.price} onChange={(e)=>setHarvestForm({...harvestForm, price: parseFloat(e.target.value) || 0})} className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none" /></div>
+                        </div>
+                        <button onClick={handleFinalizeHarvest} className="w-full py-5 bg-emerald-700 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl mt-6 hover:bg-emerald-800 transition-all flex items-center justify-center gap-3">
+                            <Archive size={18}/>
+                            Commit Batch to National Trade
                         </button>
                     </div>
                 </div>
             </div>
         )}
-
-        <style>{`
-            .marker-label-shadow { text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.5); padding: 4px 8px; background: rgba(27, 77, 62, 0.4); border-radius: 4px; }
-            .no-scrollbar::-webkit-scrollbar { display: none; }
-            .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        `}</style>
     </div>
   );
 };

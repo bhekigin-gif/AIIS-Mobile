@@ -46,7 +46,6 @@ export const chatWithAgriBot = async (
 ): Promise<{ text: string; groundingMetadata?: any }> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    // Use gemini-3-pro-preview for advanced advisory chat especially with multimodal input
     const selectedModel = attachment ? EXPERT_MODEL_NAME : MODEL_NAME;
     const chat = ai.chats.create({
       model: selectedModel,
@@ -55,10 +54,43 @@ export const chatWithAgriBot = async (
     const parts: any[] = [{ text: message }];
     if (attachment) parts.push({ inlineData: attachment });
     
-    // Using sendMessage with message parameter containing parts for multi-modal context
     const result = await chat.sendMessage({ message: parts });
     return { text: result.text || "...", groundingMetadata: result.candidates?.[0]?.groundingMetadata };
   } catch (error) { return { text: "Connection issues." }; }
+};
+
+// AI Vision for Resource Categorization
+export const analyzeResourceImage = async (base64Image: string, mimeType: string = "image/jpeg"): Promise<any> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `ANALYZE AGRICULTURAL RESOURCE IMAGE:
+    Identify: Resource Name, Resource Type (Machinery, Equipment, Personnel, Consumable Input), Category (e.g., Irrigation, Tillage, Fertilizer, PPE), and a technical description.
+    Return strictly valid JSON matching the schema.`;
+    
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME, 
+      contents: {
+        parts: [{ inlineData: { mimeType: mimeType, data: base64Image } }, { text: prompt }]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            type: { type: Type.STRING },
+            category: { type: Type.STRING },
+            description: { type: Type.STRING },
+          },
+          required: ['name', 'type', 'category']
+        }
+      }
+    });
+    return JSON.parse(response.text || "{}");
+  } catch (error) { 
+    console.error("Resource analysis error:", error);
+    return null; 
+  }
 };
 
 // AI Vision to extract details from National ID cards
@@ -66,10 +98,9 @@ export const extractPersonalDetailsFromID = async (base64Image: string, mimeType
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const prompt = `EXTRACT DATA FROM ESWATINI ID:
-    Find: First Name, Last Name, ID Number (PIN), Date of Birth, Gender, Chief Code (Alpha-numeric code usually found on Eswatini ID cards).
+    Find: First Name, Last Name, ID Number (PIN), Date of Birth, Gender, Chief Code.
     Ignore background artifacts. Return strictly valid JSON.`;
     
-    // Using gemini-3-flash-preview for multi-modal text extraction tasks
     const response = await ai.models.generateContent({
       model: MODEL_NAME, 
       contents: {
@@ -94,12 +125,10 @@ export const extractPersonalDetailsFromID = async (base64Image: string, mimeType
     const text = response.text || "{}";
     return JSON.parse(text.trim());
   } catch (error) { 
-    console.error("Extraction error:", error);
     return null; 
   }
 };
 
-// Generate a narrative user story based on role and goal
 export const generateCustomUserStory = async (role: ActorType, goal: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({ 
@@ -109,7 +138,6 @@ export const generateCustomUserStory = async (role: ActorType, goal: string): Pr
   return response.text || "";
 };
 
-// Generate a summary report for product traceability
 export const getTraceabilityReport = async (id: string, product: SalesProduct, owner: UserProfile | undefined): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -129,7 +157,6 @@ export const getTraceabilityReport = async (id: string, product: SalesProduct, o
   } catch (error) { return "Provenance verification incomplete."; }
 };
 
-// Placeholder for weather forecast retrieval
 export const getWeatherForecast = async (lat: number, lng: number): Promise<any> => {
     return { location: "Eswatini", days: [{ day: "Today", high: 28, low: 18, condition: "Sunny", rainChance: 0 }] };
 };

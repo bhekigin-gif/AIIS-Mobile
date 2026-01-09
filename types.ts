@@ -72,6 +72,8 @@ export interface Resource {
     productionDate?: string;
     expiryDate?: string;
     initialValue?: number; // Total purchase cost
+    /** Optional base64 encoded image data or URL for the resource */
+    image?: string;
 }
 
 export interface UserProfile {

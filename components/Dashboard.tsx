@@ -53,16 +53,60 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
 
   const weatherStyles = useMemo(() => {
     const low = weatherData.toLowerCase();
-    if (low.includes('severe') || low.includes('danger') || low.includes('flood')) {
-      return { icon: <CloudLightning size={20} />, bg: 'bg-rose-50 border-rose-100', text: 'text-rose-700', iconBg: 'bg-rose-100 text-rose-600' };
+    
+    // 1. Map Icon based on weather condition
+    let weatherIcon = <Sun size={20} />;
+    if (low.includes('thunder') || low.includes('storm') || low.includes('lightning')) {
+      weatherIcon = <CloudLightning size={20} />;
+    } else if (low.includes('rain') || low.includes('shower') || low.includes('drizzle')) {
+      weatherIcon = <CloudRain size={20} />;
+    } else if (low.includes('cloud') || low.includes('overcast') || low.includes('mist') || low.includes('fog')) {
+      weatherIcon = <Cloud size={20} />;
     }
-    if (low.includes('warning') || low.includes('alert') || low.includes('heat')) {
-      return { icon: <AlertTriangle size={20} />, bg: 'bg-amber-50 border-amber-100', text: 'text-amber-800', iconBg: 'bg-amber-100 text-amber-600' };
+
+    // 2. Map Theme based on Alert Level
+    if (low.includes('severe') || low.includes('danger') || low.includes('flood') || low.includes('extreme')) {
+      return { 
+        icon: <CloudLightning size={20} className="animate-pulse" />, 
+        bg: 'bg-rose-600 border-rose-700 shadow-lg shadow-rose-200 text-white', 
+        text: 'text-white', 
+        iconBg: 'bg-white/20 text-white' 
+      };
     }
-    if (low.includes('rain') || low.includes('thunder')) {
-      return { icon: <CloudRain size={20} />, bg: 'bg-blue-50 border-blue-100', text: 'text-blue-800', iconBg: 'bg-blue-100 text-blue-600' };
+    
+    if (low.includes('warning') || low.includes('alert') || low.includes('heat') || low.includes('caution')) {
+      return { 
+        icon: <AlertTriangle size={20} />, 
+        bg: 'bg-amber-400 border-amber-500 shadow-md shadow-amber-100', 
+        text: 'text-amber-950', 
+        iconBg: 'bg-white/30 text-amber-900' 
+      };
     }
-    return { icon: <Sun size={20} />, bg: 'bg-emerald-50/50 border-emerald-100', text: 'text-emerald-900', iconBg: 'bg-emerald-100 text-emerald-600' };
+
+    if (low.includes('rain')) {
+      return { 
+        icon: <CloudRain size={20} />, 
+        bg: 'bg-blue-50 border-blue-100', 
+        text: 'text-blue-800', 
+        iconBg: 'bg-blue-100 text-blue-600' 
+      };
+    }
+
+    if (low.includes('cloud')) {
+        return { 
+          icon: <Cloud size={20} />, 
+          bg: 'bg-slate-100 border-slate-200', 
+          text: 'text-slate-700', 
+          iconBg: 'bg-slate-200 text-slate-500' 
+        };
+    }
+
+    return { 
+      icon: weatherIcon, 
+      bg: 'bg-emerald-50/50 border-emerald-100', 
+      text: 'text-emerald-900', 
+      iconBg: 'bg-emerald-100 text-emerald-600' 
+    };
   }, [weatherData]);
 
   useEffect(() => {
@@ -128,10 +172,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
                 <div><p className="text-[9px] text-slate-400 font-black uppercase">Yield Aggregate</p><h3 className="text-lg font-black text-slate-800">{isRegionalScope ? '4.2k' : '18.8k'} <span className="text-[10px] text-slate-300">Tons</span></h3></div>
             </div>
         )}
-        <div className={`p-4 rounded-2xl border shadow-sm flex items-center gap-3 ${weatherStyles.bg}`}>
-          <div className={`p-3 rounded-xl ${weatherStyles.iconBg}`}>{weatherStyles.icon}</div>
+        <div className={`p-4 rounded-2xl border transition-all duration-500 flex items-center gap-3 ${weatherStyles.bg}`}>
+          <div className={`p-3 rounded-xl transition-colors ${weatherStyles.iconBg}`}>{weatherStyles.icon}</div>
           <div className="flex-1 overflow-hidden">
-            <p className="text-[9px] text-slate-400 font-black uppercase">Met Alert</p>
+            <p className={`text-[9px] font-black uppercase ${weatherStyles.bg.includes('rose') ? 'text-rose-100' : 'text-slate-400'}`}>Met Alert</p>
             <h3 className={`text-[10px] font-black truncate leading-tight mt-0.5 ${weatherStyles.text}`}>{weatherData}</h3>
           </div>
         </div>

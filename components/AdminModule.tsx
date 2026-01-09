@@ -26,7 +26,12 @@ import {
     Building,
     ChevronLeft,
     FilterX,
-    CalendarCheck
+    CalendarCheck,
+    DownloadCloud,
+    UploadCloud,
+    ShieldQuestion,
+    Wrench,
+    RefreshCw
 } from 'lucide-react';
 import { 
     View_All_System_Users, 
@@ -141,6 +146,10 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     const [hubCsvDataRows, setHubCsvDataRows] = useState<string[][]>([]);
     const [hubFieldMap, setHubFieldMap] = useState<Record<string, string>>({});
     const [isProcessingHub, setIsProcessingHub] = useState(false);
+    
+    // Maintenance State
+    const [isBackingUp, setIsBackingUp] = useState(false);
+    const [isRestoring, setIsRestoring] = useState(false);
 
     const getScopedUsers = (users: UserProfile[]) => {
         if (!currentUser) return [];
@@ -426,6 +435,82 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                 setHubFieldMap(initialMap);
                 setShowDataHubModal(true);
             }
+        };
+        reader.readAsText(file);
+    };
+
+    // --- Maintenance Functions ---
+
+    const handleExportBackup = async () => {
+        setIsBackingUp(true);
+        try {
+            const tables = [
+                DbTable.Users, DbTable.Enterprises, DbTable.Products, 
+                DbTable.Orders, DbTable.Catalogue, DbTable.Metadata
+            ];
+            
+            const backupData: Record<string, any[]> = {};
+            for (const table of tables) {
+                backupData[table] = await db.getAll(table);
+            }
+
+            const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `AIIS_NATIONAL_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Backup Failed:", err);
+            alert("Digital Export Failed. Check system logs.");
+        }
+        setIsBackingUp(false);
+    };
+
+    const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        const confirmRestore = window.confirm(
+            "WARNING: Restoring from a local backup will OVERWRITE all current data in this node. Proceed only if you have the authorized National Archive file."
+        );
+        if (!confirmRestore) return;
+
+        setIsRestoring(true);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const backup = JSON.parse(event.target?.result as string);
+                
+                // Validate simple schema check
+                if (!backup.users || !backup.catalogue || !backup.metadata) {
+                    throw new Error("Invalid Archive Format: Required system nodes missing.");
+                }
+
+                // Node Restoration Loop
+                const tables = [
+                    { key: 'users', table: DbTable.Users },
+                    { key: 'enterprises', table: DbTable.Enterprises },
+                    { key: 'products', table: DbTable.Products },
+                    { key: 'orders', table: DbTable.Orders },
+                    { key: 'catalogue', table: DbTable.Catalogue },
+                    { key: 'metadata', table: DbTable.Metadata }
+                ];
+
+                for (const node of tables) {
+                    if (backup[node.key]) {
+                        await db.saveAll(node.table, backup[node.key]);
+                    }
+                }
+
+                alert("National Registry Restored Successfully. The application will now synchronize.");
+                window.location.reload();
+            } catch (err) {
+                console.error("Restore Error:", err);
+                alert("Restoration Blocked: The provided file is corrupt or uses an incompatible identity schema.");
+            }
+            setIsRestoring(false);
         };
         reader.readAsText(file);
     };
@@ -792,6 +877,79 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         </div>
     );
 
+    const renderMaintenance = () => (
+        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in py-6">
+            <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden border border-white/5 shadow-2xl">
+                <div className="relative z-10 space-y-6">
+                    <div className="flex items-center gap-5">
+                        <div className="p-4 bg-amber-500/20 rounded-2xl border border-amber-500/20"><LockKeyhole size={32} className="text-amber-500"/></div>
+                        <div>
+                            <h3 className="text-2xl font-black uppercase tracking-tight">National Archive & Recovery</h3>
+                            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-1">Institutional Continuity Protocol</p>
+                        </div>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed font-medium max-w-2xl opacity-80">
+                        Accumulated data is stored securely in your browser's encrypted vault (IndexedDB). For absolute safety against data loss or to migrate to a new device, generate a National Archive file below.
+                    </p>
+                </div>
+                <Database size={300} className="absolute -bottom-20 -right-20 text-white/5 pointer-events-none rotate-12" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-xl transition-all">
+                    <div className="space-y-6">
+                        <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-emerald-600 inline-block"><DownloadCloud size={32}/></div>
+                        <div>
+                            <h4 className="text-xl font-black text-slate-800">Export National Backup</h4>
+                            <p className="text-xs text-slate-400 mt-2 font-medium leading-relaxed">Extracts all identities, spatial hubs, and trade batches into a secure JSON archive.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={handleExportBackup}
+                        disabled={isBackingUp}
+                        className="mt-10 w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-emerald-900 transition-all active:scale-95"
+                    >
+                        {isBackingUp ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                        {isBackingUp ? 'Compiling Archive...' : 'Generate Backup'}
+                    </button>
+                </div>
+
+                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-xl transition-all">
+                    <div className="space-y-6">
+                        <div className="p-5 bg-indigo-50 rounded-[1.5rem] border border-indigo-100 text-indigo-600 inline-block"><UploadCloud size={32}/></div>
+                        <div>
+                            <h4 className="text-xl font-black text-slate-800">Restore Node State</h4>
+                            <p className="text-xs text-slate-400 mt-2 font-medium leading-relaxed">Restore your local database from a previously saved National Archive file.</p>
+                        </div>
+                    </div>
+                    <div className="mt-10 relative">
+                        <input 
+                            type="file" 
+                            className="absolute inset-0 opacity-0 cursor-pointer z-10" 
+                            accept=".json" 
+                            onChange={handleImportBackup}
+                            disabled={isRestoring}
+                        />
+                        <button 
+                            className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all"
+                        >
+                            {isRestoring ? <Loader2 size={18} className="animate-spin" /> : <ShieldQuestion size={18} />}
+                            {isRestoring ? 'Restoring Node...' : 'Select Archive'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-8 bg-rose-50 rounded-[2.5rem] border border-rose-100 flex items-start gap-4">
+                <ShieldAlert size={24} className="text-rose-600 mt-1 shrink-0" />
+                <div className="space-y-2">
+                    <h5 className="text-[10px] font-black text-rose-900 uppercase tracking-widest">Crucial Identity Warning</h5>
+                    <p className="text-xs text-rose-800 leading-relaxed font-medium">Restoring an archive will permanently replace all data on this device. This action cannot be undone. Ensure your backup file is current before initializing restoration.</p>
+                </div>
+            </div>
+        </div>
+    );
+
     if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
 
     return (
@@ -802,7 +960,14 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     {currentUser?.role === UserRole.Extension && (<div className="mb-0.5 px-3 py-1.5 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-2"><MapPinned size={14} className="text-emerald-600"/><div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-tight text-emerald-800"><span>{currentUser.region}</span><ChevronRight size={10} className="text-emerald-300"/><span>{currentUser.rda || 'All RDA'}</span></div></div>)}
                 </div>
                 <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm max-w-full overflow-x-auto no-scrollbar">
-                    {[ { id: 'overview', label: 'Dash', icon: <LayoutDashboard size={10}/> }, { id: 'users', label: 'Nodes', icon: <Users size={10}/> }, { id: 'catalogue', label: 'Master', icon: <Box size={10}/> }, { id: 'datahub', label: 'Data Hub', icon: <DatabaseZap size={10}/> }, { id: 'dropdowns', label: 'Metadata', icon: <ListFilter size={10}/> } ].map(tab => (
+                    {[ 
+                        { id: 'overview', label: 'Dash', icon: <LayoutDashboard size={10}/> }, 
+                        { id: 'users', label: 'Nodes', icon: <Users size={10}/> }, 
+                        { id: 'catalogue', label: 'Master', icon: <Box size={10}/> }, 
+                        { id: 'datahub', label: 'Data Hub', icon: <DatabaseZap size={10}/> }, 
+                        { id: 'dropdowns', label: 'Metadata', icon: <ListFilter size={10}/> },
+                        { id: 'maintenance', label: 'Archive', icon: <RefreshCw size={10}/> }
+                    ].map(tab => (
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab.id ? 'bg-[#1B4D3E] text-white shadow-sm' : 'text-slate-400 hover:bg-slate-50'}`}>{tab.icon} {tab.label}</button>
                     ))}
                 </div>
@@ -814,6 +979,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                 {activeTab === 'users' && renderRegistry()}
                 {activeTab === 'catalogue' && renderCatalogue()}
                 {activeTab === 'datahub' && renderDataHub()}
+                {activeTab === 'maintenance' && renderMaintenance()}
                 {activeTab === 'dropdowns' && (
                     <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden animate-fade-in flex flex-col h-[calc(100vh-200px)]"><div className="p-6 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between gap-4"><div className="flex items-center gap-3"><div className="p-2 bg-[#1B4D3E] rounded-xl text-[#FBBF24]"><ListFilter size={20}/></div><div><h3 className="text-sm font-black text-[#1B4D3E] uppercase tracking-tight">Metadata Management</h3><p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Control Global UI Dropdown Options</p></div></div></div><div className="flex-1 overflow-hidden flex flex-col lg:flex-row"><div className="flex-1 overflow-y-auto p-6 border-r border-slate-100 no-scrollbar"><div className="space-y-2">{(systemMetadata?.[selectedDropdownKey] || []).map((option: any, i: number) => (<div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl group hover:bg-slate-100 transition-colors"><span className="text-xs font-bold text-slate-700">{typeof option === 'string' ? option : option.name}</span><button onClick={() => handleUpdateDropdownOption(typeof option === 'string' ? option : option.id)} className="p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={16}/></button></div>))}</div></div><div className="w-full lg:w-80 bg-slate-50/50 p-8 shrink-0"><div className="space-y-6 sticky top-0"><div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Append Option</label><input value={newOptionValue} onChange={(e) => setNewOptionValue(e.target.value)} placeholder="Enter value..." className="w-full px-5 py-4 bg-white border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-4 focus:ring-[#1B4D3E]/5"/></div><button onClick={() => handleUpdateDropdownOption()} disabled={!newOptionValue.trim()} className="w-full py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-3 disabled:opacity-30 transition-all active:scale-95"><Plus size={16}/> Add to Global Node</button></div></div></div></div>
                 )}
