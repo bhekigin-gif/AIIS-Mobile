@@ -1,5 +1,4 @@
 
-
 export enum Region {
   Hhohho = 'Hhohho',
   Manzini = 'Manzini',
@@ -51,7 +50,8 @@ export enum ResourceType {
     Machinery = 'Machinery',
     Equipment = 'Equipment',
     Personnel = 'Personnel',
-    Consumable = 'Consumable Input'
+    Consumable = 'Consumable Input',
+    Animals = 'Animals'
 }
 
 export interface Resource {
@@ -60,7 +60,7 @@ export interface Resource {
     name: string;
     unitNumber: string;
     category: string;
-    unitCost: number; // This is the hourly rate or unit rate
+    unitCost: number; 
     quantity: number;
     threshold?: number;
     totalUsageHours?: number;
@@ -71,38 +71,38 @@ export interface Resource {
     linkedUserId?: string;
     productionDate?: string;
     expiryDate?: string;
-    initialValue?: number; // Total purchase cost
-    /** Optional base64 encoded image data or URL for the resource */
+    initialValue?: number;
+    lifespanHours?: number;
     image?: string;
 }
 
 export interface UserProfile {
-  id?: string; // National ID
-  name: string; // Display Name (Combined)
+  id?: string;
+  name: string;
   firstName?: string;
   lastName?: string;
   email?: string;
   role: UserRole;
-  actorType?: ActorType; // System Role Detail
+  actorType?: ActorType;
   region?: string;
-  tinkhundla?: string; // Constituency
+  tinkhundla?: string;
   avatar?: string;
   title?: string;
   status?: 'Active' | 'Pending Approval' | 'Suspended';
-  entityType?: EntityType; // Institution Type
+  entityType?: EntityType;
   subsidyStatus?: 'None' | 'NMC Voucher' | 'Input Subsidy';
   coordinates?: { lat: number; lng: number };
   dateRegistered?: string;
-  contact?: string; // Contacts
+  contact?: string;
   gender?: string;
   organization?: string;
   organizationId?: string;
   functionalRole?: string;
   country?: string;
   rda?: string;
-  lastLogin?: string; // Added to track last access
+  lastLogin?: string;
   veterinaryArea?: string;
-  chiefCode?: string; // Chief Code from ID
+  chiefCode?: string;
   affiliations?: string[];
 }
 
@@ -128,14 +128,15 @@ export interface SalesProduct {
     rejectionReason?: string;
     operationId?: string;
     parentBatchId?: string;
-    isService?: boolean; // Indicates training or advisory
+    isService?: boolean;
 }
 
 export interface MarketCartItem extends SalesProduct {
     cartQty: number;
+    destinationUnitId?: string;
 }
 
-export type OrderStatus = 'Pending' | 'Confirmed' | 'Dispatched' | 'Delivered' | 'Cancelled';
+export type OrderStatus = 'Request' | 'Payment' | 'Confirmation' | 'Processing' | 'Dispatched' | 'Received' | 'Cancelled';
 
 export interface MarketOrder {
     id: string;
@@ -144,12 +145,18 @@ export interface MarketOrder {
     status: OrderStatus;
     customerName: string;
     customerId: string;
+    sellerId: string;
+    sellerName: string;
     date: string;
     region: Region;
+    transportServiceId?: string;
+    transportServiceName?: string;
+    popImage?: string;
+    popRef?: string;
+    notes?: string;
 }
 
 export interface CatalogueItem {
-  /** Satisfy DatabaseService constraints by including an optional ID */
   id?: string | number;
   registrationId: string;
   division: string;
@@ -210,7 +217,8 @@ export interface Operation {
   durationHours?: number;
   accumulatedCost?: number;
   producedId?: string;
-  beneficiariesReached?: number; // For extension impact tracking
+  beneficiariesReached?: number;
+  logs?: any[];
 }
 
 export interface StatData {
@@ -220,7 +228,7 @@ export interface StatData {
 }
 
 export interface ChatMessage {
-  role: 'user' | 'model' | 'extension'; // Support human officer role
+  role: 'user' | 'model' | 'extension';
   text: string;
   timestamp: Date;
   groundingMetadata?: any;
@@ -235,7 +243,7 @@ export const TINKHUNDLA = {
     [Region.Hhohho]: ['Mbabane East', 'Mbabane West', 'Lobamba', 'Pigg\'s Peak', 'Timphisini', 'Motjane', 'Madlangempisi', 'Mayiwane', 'Ndzingeni', 'Ntfonjeni', 'Hhukwini', 'Maphalaleni', 'Nkhaba', 'Siphocosini'],
     [Region.Manzini]: ['Manzini North', 'Manzini South', 'Kwaluseni', 'Lobamba Lomdzala', 'Nhlambeni', 'Ngwempisi', 'Lamgabhi', 'Ludzeludze', 'Mhlambanyatsi', 'Mtfongwaneni', 'Kukhanyeni', 'Mafutseni', 'Mkhiweni', 'Nkomiyahlaba', 'Mahlangatsha', 'Mangcongo', 'Ntondozi', 'Phondo'],
     [Region.Shiselweni]: ['Hlatikulu', 'Nhlangano', 'Shiselweni I', 'Shiselweni II', 'Hluthi', 'Kumethula', 'Ngudzeni', 'Sandleni', 'Sigwe', 'Hosea', 'Matsanjeni South', 'Somntongo', 'Kubuta', 'Mtsambama', 'Nkwene', 'Mahamba', 'Gege', 'Maseyisini', 'Zombodze Emuva'],
-    [Region.Lubombo]: ['Siteki', 'Siphofaneni', 'Big Bend', 'Lomahasha', 'Tikhuba', 'Dvokodvweni', 'Mhlume', 'Mpolonjeni', 'Gilgal', 'Nkilongo', 'Lubuli', 'Sithobela', 'Lugongolweni', 'Matsanjeni North'],
+    [Region.Lubombo]: ['Siteki', 'Siphofaneni', 'Sithobela', 'Tikhuba', 'Dvokodvweni', 'Mhlume', 'Mpolonjeni', 'Gilgal', 'Nkilongo', 'Lubuli', 'Sithobela', 'Lugongolweni', 'Matsanjeni North'],
     [Region.All]: []
 };
 
