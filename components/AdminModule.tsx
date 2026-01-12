@@ -126,14 +126,12 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     const [userSearch, setUserSearch] = useState('');
     const [systemMetadata, setSystemMetadata] = useState<any>(null);
     
-    // User Pagination and Filtering
     const [userPage, setUserPage] = useState(1);
     const [userPageSize] = useState(20);
     const [filterRole, setFilterRole] = useState<string>('All');
     const [filterRegion, setFilterRegion] = useState<string>('All');
     const [filterTinkhundla, setFilterTinkhundla] = useState<string>('All');
 
-    // Editing State
     const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
     const [editingCatalogueId, setEditingCatalogueId] = useState<string | null>(null);
     const [catalogueEditBuffer, setCatalogueEditBuffer] = useState<Partial<CatalogueItem>>({});
@@ -147,7 +145,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     const [hubFieldMap, setHubFieldMap] = useState<Record<string, string>>({});
     const [isProcessingHub, setIsProcessingHub] = useState(false);
     
-    // Maintenance State
     const [isBackingUp, setIsBackingUp] = useState(false);
     const [isRestoring, setIsRestoring] = useState(false);
 
@@ -200,7 +197,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     const [catalogueSearch, setCatalogueSearch] = useState('');
     const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
-    // Filtered and Paginated Users
     const filteredUsers = useMemo(() => {
         return allUsers.filter(u => {
             const matchesSearch = 
@@ -439,8 +435,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         reader.readAsText(file);
     };
 
-    // --- Maintenance Functions ---
-
     const handleExportBackup = async () => {
         setIsBackingUp(true);
         try {
@@ -483,12 +477,10 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             try {
                 const backup = JSON.parse(event.target?.result as string);
                 
-                // Validate simple schema check
                 if (!backup.users || !backup.catalogue || !backup.metadata) {
                     throw new Error("Invalid Archive Format: Required system nodes missing.");
                 }
 
-                // Node Restoration Loop
                 const tables = [
                     { key: 'users', table: DbTable.Users },
                     { key: 'enterprises', table: DbTable.Enterprises },
@@ -626,7 +618,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                 </table>
             </div>
 
-            {/* Pagination Controls */}
             <div className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between shrink-0 shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase">Showing {paginatedUsers.length} of {filteredUsers.length} records</p>
                 <div className="flex items-center gap-2">
@@ -658,7 +649,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                 </div>
             </div>
 
-            {/* User Edit Modal */}
             {editingUser && (
                 <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
                     <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -753,11 +743,8 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         </div>
     );
 
-    /**
-     * Renders the Data Synchronization Hub for bulk operations.
-     */
     const renderDataHub = () => (
-        <div className="space-y-6 animate-fade-in max-w-6xl mx-auto py-4">
+        <div className="space-y-6 animate-fade-in w-full max-w-[1600px] mx-auto py-4">
             <div className="bg-[#1B4D3E] p-10 rounded-[3rem] border border-white/10 shadow-xl relative overflow-hidden text-white">
                 <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
                     <div className="p-5 bg-white/10 rounded-[2.5rem] border border-white/10 backdrop-blur-md">
@@ -810,7 +797,6 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                 ))}
             </div>
 
-            {/* Hub Mapping Modal */}
             {showDataHubModal && (
                 <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-8 animate-fade-in">
                     <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -878,51 +864,51 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
     );
 
     const renderMaintenance = () => (
-        <div className="max-w-4xl mx-auto space-y-8 animate-fade-in py-6">
-            <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden border border-white/5 shadow-2xl">
+        <div className="w-full max-w-[1600px] mx-auto space-y-8 animate-fade-in py-6 h-full flex flex-col no-scrollbar">
+            <div className="bg-slate-900 rounded-[3rem] p-8 sm:p-12 text-white relative overflow-hidden border border-white/5 shadow-2xl shrink-0">
                 <div className="relative z-10 space-y-6">
-                    <div className="flex items-center gap-5">
-                        <div className="p-4 bg-amber-500/20 rounded-2xl border border-amber-500/20"><LockKeyhole size={32} className="text-amber-500"/></div>
+                    <div className="flex items-center gap-6">
+                        <div className="p-5 bg-amber-500/20 rounded-2xl border border-amber-500/20 shadow-inner"><LockKeyhole size={40} className="text-amber-500"/></div>
                         <div>
-                            <h3 className="text-2xl font-black uppercase tracking-tight">National Archive & Recovery</h3>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-1">Institutional Continuity Protocol</p>
+                            <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">National Archive & Recovery</h3>
+                            <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] mt-1.5">Institutional Continuity Protocol</p>
                         </div>
                     </div>
-                    <p className="text-sm text-slate-300 leading-relaxed font-medium max-w-2xl opacity-80">
-                        Accumulated data is stored securely in your browser's encrypted vault (IndexedDB). For absolute safety against data loss or to migrate to a new device, generate a National Archive file below.
+                    <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-medium max-w-3xl opacity-80">
+                        Local data nodes are synchronized within your device's encrypted vault. Maintain absolute continuity by periodically generating a National Archive file for off-site backup or system migration.
                     </p>
                 </div>
-                <Database size={300} className="absolute -bottom-20 -right-20 text-white/5 pointer-events-none rotate-12" />
+                <Database size={350} className="absolute -bottom-24 -right-24 text-white/5 pointer-events-none rotate-12" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-xl transition-all">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 min-h-0">
+                <div className="bg-white p-8 sm:p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-xl transition-all h-full group">
                     <div className="space-y-6">
-                        <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-emerald-600 inline-block"><DownloadCloud size={32}/></div>
+                        <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-emerald-600 inline-block shadow-sm group-hover:rotate-6 transition-transform"><DownloadCloud size={40}/></div>
                         <div>
-                            <h4 className="text-xl font-black text-slate-800">Export National Backup</h4>
-                            <p className="text-xs text-slate-400 mt-2 font-medium leading-relaxed">Extracts all identities, spatial hubs, and trade batches into a secure JSON archive.</p>
+                            <h4 className="text-xl sm:text-2xl font-black text-slate-800">Export National Backup</h4>
+                            <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium leading-relaxed">Encapsulates all stakeholder identities, spatial hub coordinate clusters, and trade chronology batches into a verified secure archive.</p>
                         </div>
                     </div>
                     <button 
                         onClick={handleExportBackup}
                         disabled={isBackingUp}
-                        className="mt-10 w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-emerald-900 transition-all active:scale-95"
+                        className="mt-8 sm:mt-12 w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] sm:text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-emerald-900 disabled:opacity-30 transition-all active:scale-95"
                     >
                         {isBackingUp ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                        {isBackingUp ? 'Compiling Archive...' : 'Generate Backup'}
+                        {isBackingUp ? 'Compiling Archive...' : 'Initialize Backup Extraction'}
                     </button>
                 </div>
 
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-xl transition-all">
+                <div className="bg-white p-8 sm:p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-xl transition-all h-full group">
                     <div className="space-y-6">
-                        <div className="p-5 bg-indigo-50 rounded-[1.5rem] border border-indigo-100 text-indigo-600 inline-block"><UploadCloud size={32}/></div>
+                        <div className="p-5 bg-indigo-50 rounded-[1.5rem] border border-indigo-100 text-indigo-600 inline-block shadow-sm group-hover:-rotate-6 transition-transform"><UploadCloud size={40}/></div>
                         <div>
-                            <h4 className="text-xl font-black text-slate-800">Restore Node State</h4>
-                            <p className="text-xs text-slate-400 mt-2 font-medium leading-relaxed">Restore your local database from a previously saved National Archive file.</p>
+                            <h4 className="text-xl sm:text-2xl font-black text-slate-800">Restore Node State</h4>
+                            <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium leading-relaxed">Repopulate your local database from an authorized National Archive. Warning: This process synchronizes all internal node tables.</p>
                         </div>
                     </div>
-                    <div className="mt-10 relative">
+                    <div className="mt-8 sm:mt-12 relative">
                         <input 
                             type="file" 
                             className="absolute inset-0 opacity-0 cursor-pointer z-10" 
@@ -931,20 +917,20 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                             disabled={isRestoring}
                         />
                         <button 
-                            className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all"
+                            className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] sm:text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all"
                         >
                             {isRestoring ? <Loader2 size={18} className="animate-spin" /> : <ShieldQuestion size={18} />}
-                            {isRestoring ? 'Restoring Node...' : 'Select Archive'}
+                            {isRestoring ? 'Restoring Node...' : 'Load Verification Archive'}
                         </button>
                     </div>
                 </div>
             </div>
 
-            <div className="p-8 bg-rose-50 rounded-[2.5rem] border border-rose-100 flex items-start gap-4">
-                <ShieldAlert size={24} className="text-rose-600 mt-1 shrink-0" />
-                <div className="space-y-2">
-                    <h5 className="text-[10px] font-black text-rose-900 uppercase tracking-widest">Crucial Identity Warning</h5>
-                    <p className="text-xs text-rose-800 leading-relaxed font-medium">Restoring an archive will permanently replace all data on this device. This action cannot be undone. Ensure your backup file is current before initializing restoration.</p>
+            <div className="p-6 sm:p-8 bg-rose-50 rounded-[2.5rem] border border-rose-100 flex items-start gap-5 shrink-0">
+                <ShieldAlert size={28} className="text-rose-600 mt-1 shrink-0" />
+                <div className="space-y-1.5">
+                    <h5 className="text-[10px] sm:text-xs font-black text-rose-900 uppercase tracking-widest">Protocol Warning: Permanent State Sync</h5>
+                    <p className="text-xs text-rose-800 leading-relaxed font-medium">Restoration overwrites your current local registry. Ensure any important unsynced field data is exported before proceeding with an archive restoration.</p>
                 </div>
             </div>
         </div>
