@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     LayoutDashboard, Users, ShoppingBag, FileText, 
@@ -58,9 +57,9 @@ const DATA_SCHEMAS = [
         id: 'users',
         name: 'User Registry',
         icon: <Users size={20}/>,
-        description: 'Primary identity records for all agricultural stakeholders.',
+        description: 'Primary identity records for all stakeholders.',
         fields: [
-            { key: 'id', label: 'National ID', required: true, hint: 'Unique PIN' },
+            { key: 'id', label: 'ID', required: true, hint: 'Unique PIN' },
             { key: 'firstName', label: 'First Name', required: true },
             { key: 'lastName', label: 'Last Name', required: true },
             { key: 'contact', label: 'Contacts', required: true },
@@ -97,7 +96,7 @@ const DATA_SCHEMAS = [
         id: 'catalogue',
         name: 'Master Catalogue',
         icon: <Box size={20}/>,
-        description: 'National Vetted Registry for inputs, standards, and spatial availability.',
+        description: 'Vetted Registry for inputs, standards, and spatial availability.',
         fields: [
             { key: 'registrationId', label: 'ID', required: true },
             { key: 'division', label: 'Division', required: true },
@@ -323,7 +322,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         productStandardDescription: get('productStandardDescription'),
                         productStandardUrl: get('productStandardUrl'),
                         status: get('status') || 'Vetted',
-                        availableDistrict: get('availableDistrict') || 'National',
+                        availableDistrict: get('availableDistrict') || 'Regional',
                         availableRDA: get('availableRDA') || 'All',
                         availableConstituency: get('availableConstituency') || 'All',
                         availableDiptank: get('availableDiptank'),
@@ -452,12 +451,12 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `AIIS_NATIONAL_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
+            link.download = `AIIS_BACKUP_${new Date().toISOString().split('T')[0]}.json`;
             link.click();
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error("Backup Failed:", err);
-            alert("Digital Export Failed. Check system logs.");
+            alert("Export Failed. Check system logs.");
         }
         setIsBackingUp(false);
     };
@@ -467,7 +466,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         if (!file) return;
         
         const confirmRestore = window.confirm(
-            "WARNING: Restoring from a local backup will OVERWRITE all current data in this node. Proceed only if you have the authorized National Archive file."
+            "WARNING: Restoring from a backup will OVERWRITE all current data in this node. Proceed only if you have the authorized Archive file."
         );
         if (!confirmRestore) return;
 
@@ -496,7 +495,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     }
                 }
 
-                alert("National Registry Restored Successfully. The application will now synchronize.");
+                alert("Registry Restored Successfully. The application will now synchronize.");
                 window.location.reload();
             } catch (err) {
                 console.error("Restore Error:", err);
@@ -536,7 +535,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         onChange={(e) => { setFilterRegion(e.target.value); setFilterTinkhundla('All'); setUserPage(1); }}
                         className="px-4 py-2.5 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-tight text-[#1B4D3E] outline-none h-12"
                     >
-                        <option value="All">National Scope</option>
+                        <option value="All">Global Scope</option>
                         {systemMetadata.regions.map((r: string) => <option key={r} value={r}>{r}</option>)}
                     </select>
                     {filterRegion !== 'All' && (
@@ -564,7 +563,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-widest sticky top-0 z-10">
                         <tr>
                             <th className="p-4 sticky left-0 bg-[#1B4D3E] z-20">Full Name / Persona</th>
-                            <th className="p-4">National ID (PIN)</th>
+                            <th className="p-4">ID (PIN)</th>
                             <th className="p-4">Communication Node</th>
                             <th className="p-4 text-center">Gender</th>
                             <th className="p-4 text-center">Institution Node</th>
@@ -710,7 +709,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
 
     const renderCatalogue = () => (
         <div className="space-y-2 animate-fade-in flex flex-col h-[calc(100vh-200px)] relative">
-            <div className="bg-white p-2 rounded-xl border border-slate-100 flex items-center gap-2 shrink-0"><div className="relative flex-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} /><input type="text" placeholder="Filter National Master Catalogue..." value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)} className="w-full h-10 pl-8 pr-3 py-1.5 bg-slate-50 border-none rounded-lg font-bold text-[10px] outline-none" /></div></div>
+            <div className="bg-white p-2 rounded-xl border border-slate-100 flex items-center gap-2 shrink-0"><div className="relative flex-1"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-300" size={12} /><input type="text" placeholder="Filter Master Catalogue..." value={catalogueSearch} onChange={(e) => setCatalogueSearch(e.target.value)} className="w-full h-10 pl-8 pr-3 py-1.5 bg-slate-50 border-none rounded-lg font-bold text-[10px] outline-none" /></div></div>
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden flex-1 overflow-x-auto overflow-y-auto no-scrollbar relative">
                 <table className="w-full text-left border-collapse min-w-[1900px]">
                     <thead className="bg-[#1B4D3E] text-white uppercase text-[7px] font-black tracking-widest sticky top-0 z-10">
@@ -751,7 +750,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         <DatabaseZap size={40} className="text-[#FBBF24]"/>
                     </div>
                     <div>
-                        <h3 className="text-3xl font-black tracking-tight">National Data Synchronization Hub</h3>
+                        <h3 className="text-3xl font-black tracking-tight">Data Synchronization Hub</h3>
                         <p className="text-sm text-green-300 font-bold uppercase tracking-[0.3em] mt-2">Bulk Transaction Engine • Institutional Records</p>
                     </div>
                 </div>
@@ -815,7 +814,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                                 <AlertCircle size={24} className="text-amber-600 mt-1 shrink-0" />
                                 <div className="space-y-1">
                                     <h4 className="text-xs font-black text-amber-900 uppercase">Synchronization Rules</h4>
-                                    <p className="text-[11px] text-amber-800 leading-relaxed font-medium">Map your CSV headers to the system node fields. Missing mandatory fields may cause node initialization failure. Duplicates will be flagged for review.</p>
+                                    <p className="text-[11px] text-amber-800 leading-relaxed font-medium">Map your CSV headers to the system node fields. Duplicates will be flagged for review.</p>
                                 </div>
                             </div>
 
@@ -853,7 +852,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                                     className="px-12 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-emerald-900 disabled:opacity-50 transition-all active:scale-95"
                                 >
                                     {isProcessingHub ? <Loader2 size={16} className="animate-spin" /> : <Database size={16}/>}
-                                    {isProcessingHub ? 'Committing Nodes...' : 'Execute National Sync'}
+                                    {isProcessingHub ? 'Committing Nodes...' : 'Execute Sync'}
                                 </button>
                             </div>
                         </div>
@@ -870,12 +869,12 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     <div className="flex items-center gap-6">
                         <div className="p-5 bg-amber-500/20 rounded-2xl border border-amber-500/20 shadow-inner"><LockKeyhole size={40} className="text-amber-500"/></div>
                         <div>
-                            <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">National Archive & Recovery</h3>
+                            <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">Archive & Recovery</h3>
                             <p className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] mt-1.5">Institutional Continuity Protocol</p>
                         </div>
                     </div>
                     <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-medium max-w-3xl opacity-80">
-                        Local data nodes are synchronized within your device's encrypted vault. Maintain absolute continuity by periodically generating a National Archive file for off-site backup or system migration.
+                        Local data nodes are synchronized within your device's encrypted vault. Maintain absolute continuity by periodically generating an Archive file for off-site backup or system migration.
                     </p>
                 </div>
                 <Database size={350} className="absolute -bottom-24 -right-24 text-white/5 pointer-events-none rotate-12" />
@@ -886,7 +885,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                     <div className="space-y-6">
                         <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 text-emerald-600 inline-block shadow-sm group-hover:rotate-6 transition-transform"><DownloadCloud size={40}/></div>
                         <div>
-                            <h4 className="text-xl sm:text-2xl font-black text-slate-800">Export National Backup</h4>
+                            <h4 className="text-xl sm:text-2xl font-black text-slate-800">Export Backup</h4>
                             <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium leading-relaxed">Encapsulates all stakeholder identities, spatial hub coordinate clusters, and trade chronology batches into a verified secure archive.</p>
                         </div>
                     </div>
@@ -905,7 +904,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
                         <div className="p-5 bg-indigo-50 rounded-[1.5rem] border border-indigo-100 text-indigo-600 inline-block shadow-sm group-hover:-rotate-6 transition-transform"><UploadCloud size={40}/></div>
                         <div>
                             <h4 className="text-xl sm:text-2xl font-black text-slate-800">Restore Node State</h4>
-                            <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium leading-relaxed">Repopulate your local database from an authorized National Archive. Warning: This process synchronizes all internal node tables.</p>
+                            <p className="text-xs sm:text-sm text-slate-400 mt-2 font-medium leading-relaxed">Repopulate your local database from an authorized Archive. Warning: This process synchronizes all internal node tables.</p>
                         </div>
                     </div>
                     <div className="mt-8 sm:mt-12 relative">
@@ -942,7 +941,7 @@ const AdminModule: React.FC<AdminModuleProps> = ({ currentUser }) => {
         <div className="flex flex-col h-full overflow-hidden gap-3">
             <div className="flex justify-between items-end border-b border-slate-200 pb-2 shrink-0">
                 <div className="flex items-end gap-3">
-                    <div><h2 className="text-xl font-black text-[#1B4D3E] tracking-tight">{currentUser?.role === UserRole.Extension ? 'Field Hub' : 'National Oversight'}</h2><p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest leading-none mt-1">National Coordination Hub</p></div>
+                    <div><h2 className="text-xl font-black text-[#1B4D3E] tracking-tight">{currentUser?.role === UserRole.Extension ? 'Field Hub' : 'Oversight'}</h2><p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest leading-none mt-1">Coordination Hub</p></div>
                     {currentUser?.role === UserRole.Extension && (<div className="mb-0.5 px-3 py-1.5 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center gap-2"><MapPinned size={14} className="text-emerald-600"/><div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-tight text-emerald-800"><span>{currentUser.region}</span><ChevronRight size={10} className="text-emerald-300"/><span>{currentUser.rda || 'All RDA'}</span></div></div>)}
                 </div>
                 <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm max-w-full overflow-x-auto no-scrollbar">

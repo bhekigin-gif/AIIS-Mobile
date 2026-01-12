@@ -1,4 +1,3 @@
-
 export enum Region {
   Hhohho = 'Hhohho',
   Manzini = 'Manzini',
@@ -62,6 +61,7 @@ export interface Resource {
     category: string;
     unitCost: number; 
     quantity: number;
+    startingQuantity?: number;
     threshold?: number;
     totalUsageHours?: number;
     assignedUnitId: string;

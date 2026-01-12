@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -54,7 +53,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
   const weatherStyles = useMemo(() => {
     const low = weatherData.toLowerCase();
     
-    // 1. Map Icon based on weather condition
     let weatherIcon = <Sun size={20} />;
     if (low.includes('thunder') || low.includes('storm') || low.includes('lightning')) {
       weatherIcon = <CloudLightning size={20} />;
@@ -64,7 +62,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
       weatherIcon = <Cloud size={20} />;
     }
 
-    // 2. Map Theme based on Alert Level
     if (low.includes('severe') || low.includes('danger') || low.includes('flood') || low.includes('extreme')) {
       return { 
         icon: <CloudLightning size={20} className="animate-pulse" />, 
@@ -138,9 +135,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-[#1B4D3E] tracking-tight">
-            {user ? `Sawubona, ${user.name.split(' ')[0]}` : "National Agriculture Gateway"}
+            {user ? `Sawubona, ${user.name.split(' ')[0]}` : "Agriculture Gateway"}
           </h2>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Kingdom of Eswatini • National Feed</p>
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Kingdom of Eswatini • Feed</p>
         </div>
         <div className="flex gap-2">
             {isExtension && (
@@ -186,7 +183,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
         <div className="bg-slate-900 p-4 rounded-2xl shadow-lg flex items-center justify-between text-white overflow-hidden relative">
           <div className="relative z-10">
             <p className="text-[9px] font-black uppercase text-emerald-400">Node Status</p>
-            <h4 className="text-sm font-black mt-0.5 uppercase tracking-tight">{user?.region || 'National'} Registry</h4>
+            <h4 className="text-sm font-black mt-0.5 uppercase tracking-tight">{user?.region || 'Global'} Registry</h4>
           </div>
           <Landmark size={48} className="absolute -bottom-2 -right-2 text-white/5" />
         </div>
@@ -196,9 +193,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5 sm:gap-8">
           <div className="p-4 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md group-hover:rotate-12 transition-transform"><Sparkles className="text-[#FBBF24]" size={24}/></div>
           <div className="flex-1">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-300 mb-2">National AI Synthesis</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-300 mb-2">AI Synthesis</h3>
             {isAnalyzing ? (
-              <div className="flex items-center gap-3 py-1"><Loader2 size={16} className="animate-spin text-green-300"/><span className="text-[11px] font-bold text-green-100/60 uppercase">Processing Node Feed...</span></div>
+              <div className="flex items-center gap-3 py-1"><Loader2 size={16} className="animate-spin text-green-300"/><span className="text-[11px] font-bold text-green-100/60 uppercase">Processing Feed...</span></div>
             ) : (
               <div className="text-xs sm:text-sm font-medium leading-relaxed prose prose-invert line-clamp-3 opacity-90" dangerouslySetInnerHTML={{ __html: aiAnalysis }} />
             )}

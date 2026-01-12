@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Filter, ShoppingBag, MapPin, Trash2, ArrowLeft, ArrowRight, 
@@ -49,7 +48,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
 
   const transportProviders = [
-    { id: 'TR-01', name: 'National Logistics Coop', rate: 1500, region: 'National' },
+    { id: 'TR-01', name: 'Logistics Coop', rate: 1500, region: 'Regional' },
     { id: 'TR-02', name: 'Manzini Express Haulers', rate: 800, region: 'Manzini' },
     { id: 'TR-03', name: 'Shiselweni Linkers', rate: 1200, region: 'Shiselweni' },
   ];
@@ -123,7 +122,6 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
 
     await db.update(DbTable.Orders, orderId, updates);
     
-    // ATOMIC INVENTORY SYNC ON RECEIPT
     if (newStatus === 'Received') {
         const enterprises = await db.getAll<any>(DbTable.Enterprises);
         
@@ -146,7 +144,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                     if (!unit.resources) unit.resources = [];
                     const existing = unit.resources.find((r: any) => r.name === item.name);
                     if (existing) existing.quantity += item.cartQty;
-                    else unit.resources.push({ id: `RES-${Date.now()}`, name: item.name, type: ResourceType.Consumable, quantity: item.cartQty, unitCost: item.price, assignedUnitId: item.destinationUnitId!, status: 'Available', category: item.category || 'Commodity' });
+                    else unit.resources.push({ id: `RES-${Date.now()}`, name: item.name, type: ResourceType.Consumable, quantity: item.cartQty, startingQuantity: item.cartQty, unitCost: item.price, assignedUnitId: item.destinationUnitId!, status: 'Available', category: item.category || 'Commodity' });
                 }
             });
             await db.update(DbTable.Enterprises, buyerEnt.id, buyerEnt);
@@ -190,7 +188,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
   return (
     <div className="space-y-8 h-full flex flex-col overflow-hidden">
         <div className="flex justify-between items-end border-b border-slate-200 pb-6 shrink-0">
-            <div><h2 className="text-4xl font-black text-[#1B4D3E]">National Trade Hub</h2><p className="text-slate-500 text-sm mt-1 font-medium">Institutional Coordinated Commerce</p></div>
+            <div><h2 className="text-4xl font-black text-[#1B4D3E]">Trade Hub</h2><p className="text-slate-500 text-sm mt-1 font-medium">Institutional Coordinated Commerce</p></div>
             <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm shrink-0 overflow-x-auto no-scrollbar">
                 {['browse', 'orders', 'manage', 'trace'].map(tab => (
                     <button key={tab} onClick={() => setViewStep(tab as any)} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl transition-all whitespace-nowrap ${viewStep === tab ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>

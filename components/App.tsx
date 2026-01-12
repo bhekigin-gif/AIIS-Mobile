@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import BottomNav from './BottomNav';
@@ -123,7 +122,7 @@ const App: React.FC = () => {
                 )}
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                      <span className="text-[10px] sm:text-[13px] font-black uppercase tracking-tight text-[#1B4D3E]">AIIS National Node</span>
+                      <span className="text-[10px] sm:text-[13px] font-black uppercase tracking-tight text-[#1B4D3E]">AIIS Node</span>
                       {isDesktop && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black rounded-md uppercase border border-emerald-100 ml-2">v4.0 Enterprise</span>}
                   </div>
                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest hidden xs:block">Eswatini • Agriculture</span>
@@ -166,7 +165,7 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-black text-sm sm:text-base uppercase tracking-tight leading-none">AIIS Expert</h3>
-                    <p className="text-[9px] text-green-300 font-bold uppercase tracking-widest mt-1">National Knowledge Node</p>
+                    <p className="text-[9px] text-green-300 font-bold uppercase tracking-widest mt-1">Knowledge Node</p>
                   </div>
                 </div>
                 <button onClick={() => setIsAIAdvisorOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all text-white/60 hover:text-white"><X size={20} /></button>

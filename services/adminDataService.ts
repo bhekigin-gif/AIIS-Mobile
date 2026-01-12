@@ -1,9 +1,6 @@
-
 import { UserProfile, UserRole, ActorType, EntityType, Region, SalesProduct, IndicatorItem, CatalogueItem, ResourceType, RDAs } from '../types';
 import { db, Table } from './databaseService';
 
-// --- SYSTEM METADATA DEFAULTS ---
-// Added id to satisfy DatabaseService type constraints
 const INITIAL_METADATA = {
     id: 'GLOBAL_SYSTEM_METADATA',
     regions: Object.values(Region).filter(r => r !== Region.All),
@@ -62,7 +59,7 @@ const ESSENTIAL_USERS: UserProfile[] = [
 
 const INITIAL_CATALOGUE: CatalogueItem[] = [
     { 
-        id: 'CAT-001', // Satisfy DatabaseService constraints by including id
+        id: 'CAT-001', 
         registrationId: 'CAT-001', 
         division: 'Consumables (Biological & Chemical)', 
         category: 'Chemicals', 
@@ -76,7 +73,7 @@ const INITIAL_CATALOGUE: CatalogueItem[] = [
         productStandardDescription: 'ISO 9001:2015 Fertilizer Standard', 
         productStandardUrl: 'https://sabs.co.za/iso9001',
         description: 'Basal Fertilizer for summer crops', 
-        availableDistrict: 'National', 
+        availableDistrict: 'Regional', 
         availableRDA: 'All', 
         availableConstituency: 'All', 
         availableDiptank: 'All',
@@ -99,7 +96,6 @@ export const Initialize_Database = async () => {
     }
 
     const meta = await db.getAll(Table.Metadata);
-    // Fixed type error by ensuring INITIAL_METADATA has an 'id' property compatible with DatabaseService
     if (meta.length === 0) await db.saveAll(Table.Metadata, [INITIAL_METADATA]);
 
     const cat = await db.getAll(Table.Catalogue);
@@ -160,14 +156,12 @@ export const View_Master_Catalogue = () => db.getAll<CatalogueItem>(Table.Catalo
 
 export const Add_To_Master_Catalogue = async (items: CatalogueItem[]) => {
     const current = await db.getAll<CatalogueItem>(Table.Catalogue);
-    // Ensure items have an id property to match DatabaseService assumptions
     const itemsWithId = items.map(item => ({ ...item, id: item.registrationId }));
     const updated = [...itemsWithId, ...current];
     await db.saveAll(Table.Catalogue, updated);
     return updated;
 };
 
-// Fix: items must satisfy the { id?: string | number } constraint of bulkInsert
 export const Bulk_Add_To_Catalogue = async (items: CatalogueItem[]) => {
     const itemsWithId = items.map(item => ({ ...item, id: item.registrationId }));
     return db.bulkInsert(Table.Catalogue, itemsWithId);
@@ -209,7 +203,7 @@ export const Report_AIIS_Indicators = (reportType: 'MALABO' | 'NATIONAL' = 'NATI
         ];
     }
     return [
-        { id: 'N1', category: 'Production', label: 'Maize Self-Sufficiency Index', value: 74, target: 100, unit: '%', status: 'Not on Track', trend: 'up', commitment: 'National Food Security' },
+        { id: 'N1', category: 'Production', label: 'Maize Self-Sufficiency Index', value: 74, target: 100, unit: '%', status: 'Not on Track', trend: 'up', commitment: 'Food Security' },
         { id: 'N2', category: 'Registry', label: 'Stakeholder Digital Integration', value: 615, target: 2000, unit: ' Nodes', status: 'On Track', trend: 'up', commitment: 'Institutional Reach' },
         { id: 'N3', category: 'Trade', label: 'Inter-Regional Commerce Liquidity', value: 4.2, target: 10, unit: 'M Emalangeni', status: 'Not on Track', trend: 'down', commitment: 'Value Chain Efficiency' },
         { id: 'N4', category: 'Policy', label: 'Women & Youth Participation', value: 42, target: 50, unit: '%', status: 'On Track', trend: 'up', commitment: 'Inclusive Development' },
