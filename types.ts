@@ -123,6 +123,7 @@ export interface SalesProduct {
     sellerContact?: string;
     manufacturer?: string;
     region?: Region;
+    tinkhundla?: string;
     sourceUnit?: string;
     costPrice?: number;
     rejectionReason?: string;

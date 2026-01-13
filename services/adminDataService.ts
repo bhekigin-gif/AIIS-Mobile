@@ -82,6 +82,54 @@ const INITIAL_CATALOGUE: CatalogueItem[] = [
     },
 ];
 
+const INITIAL_PRODUCTS: SalesProduct[] = [
+  {
+    id: 'SZ-Mlk-A1-OP001',
+    name: 'Yellow Maize - Grade A',
+    category: 'Crops',
+    price: 4800,
+    unit: 'Ton',
+    quantity: 120,
+    description: 'Bulk yellow maize, sun-dried and moisture-tested. Perfect for feed processing or human consumption.',
+    dateListed: new Date().toISOString(),
+    status: 'Active',
+    image: 'https://images.unsplash.com/photo-1551727041-5b347d65b633?w=800&q=80',
+    sellerName: 'Malkerns Estate',
+    sellerId: 'ORG-001',
+    region: Region.Manzini
+  },
+  {
+    id: 'SZ-Gin-B2-OP042',
+    name: 'Bulk Red Onions',
+    category: 'Crops',
+    price: 180,
+    unit: 'Crate',
+    quantity: 250,
+    description: 'Medium-sized pungent red onions, harvested from Ginindza Green Estate. Firm and high shelf life.',
+    dateListed: new Date().toISOString(),
+    status: 'Active',
+    image: 'https://images.unsplash.com/photo-1508747703725-719777637510?w=800&q=80',
+    sellerName: 'Ginindza Green Estate',
+    sellerId: 'GININDZA-001',
+    region: Region.Manzini
+  },
+  {
+    id: 'SZ-Lom-H1-OP109',
+    name: 'Certified NPK Fertilizer',
+    category: 'Inputs',
+    price: 650,
+    unit: 'Bag',
+    quantity: 500,
+    description: 'NPK 2:3:2 (22) for basal application. Sourced from vetted suppliers via National Trade node.',
+    dateListed: new Date().toISOString(),
+    status: 'Active',
+    image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?w=800&q=80',
+    sellerName: 'Input Supply Hub',
+    sellerId: 'MOA-HQ',
+    region: Region.Hhohho
+  }
+];
+
 export const Initialize_Database = async () => {
     let users = await db.getAll<UserProfile>(Table.Users);
     let usersUpdated = false;
@@ -100,6 +148,9 @@ export const Initialize_Database = async () => {
 
     const cat = await db.getAll(Table.Catalogue);
     if (cat.length === 0) await db.saveAll(Table.Catalogue, INITIAL_CATALOGUE);
+
+    const prods = await db.getAll(Table.Products);
+    if (prods.length === 0) await db.saveAll(Table.Products, INITIAL_PRODUCTS);
 };
 
 export const Get_System_Metadata = async () => {
