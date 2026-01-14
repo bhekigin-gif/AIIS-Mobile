@@ -9,12 +9,16 @@ import {
   RefreshCw, Sprout, Layers, Link, ArrowUpRight, BarChart3, Database, 
   Landmark, Receipt, FileSearch, Target, Wallet, ShoppingCart, FileUp, Table, Loader2,
   Fingerprint, Activity, Zap, ChevronDown, Globe, TruckIcon, Minus, CheckCircle2, ClipboardCheck,
-  SearchX, BadgeCheck, ShieldAlert, Check as CheckIcon
+  SearchX, BadgeCheck, ShieldAlert, Check as CheckIcon,
+  Maximize2, Navigation, Ruler, Route, Lock, UserPlus
 } from 'lucide-react';
 import { SalesProduct, Region, MarketCartItem, MarketOrder, UserProfile, OrderStatus, UserRole, CatalogueItem, ResourceType, ActorType } from '../types';
 import { Get_Product_By_ID, Get_User_By_ID, View_Master_Catalogue, Add_To_Master_Catalogue, Get_System_Metadata, updateProductStatus } from '../services/adminDataService';
 import { getTraceabilityReport } from '../services/geminiService';
 import { db, Table as DbTable } from '../services/databaseService';
+
+const GOOGLE_MAPS_API_KEY = "AIzaSyDFuDLViwxFLH0iO-zFgbJkks20w_DiiJU";
+const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
 
 interface MarketplaceProps {
     products: SalesProduct[];
@@ -24,11 +28,10 @@ interface MarketplaceProps {
     globalOrders: MarketOrder[];
     setGlobalOrders: React.Dispatch<React.SetStateAction<MarketOrder[]>>;
     user: UserProfile | null;
+    onRegisterClick?: () => void;
 }
 
-const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
-
-const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, setCart, globalOrders, setGlobalOrders, user }) => {
+const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, setCart, globalOrders, setGlobalOrders, user, onRegisterClick }) => {
   const [viewStep, setViewStep] = useState<'browse' | 'cart' | 'checkout' | 'success' | 'prices' | 'manage' | 'orders' | 'trace' | 'vetting'>('browse');
   const [filterRegion, setFilterRegion] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,24 +50,57 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
   const [myUnits, setMyUnits] = useState<any[]>([]);
   const [orderEvidence, setOrderEvidence] = useState<{ id: string, image: string, ref: string } | null>(null);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [auditImage, setAuditImage] = useState<string | null>(null);
+
+  // Route & Distance States
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [googleApiLoaded, setGoogleApiLoaded] = useState(false);
+  const [routeDistances, setRouteDistances] = useState<Record<string, { km: number, origin: any, destination: any }>>({});
+  const [enterprises, setEnterprises] = useState<any[]>([]);
 
   const transportProviders = [
-    { id: 'TR-01', name: 'Logistics Coop', rate: 1500, region: 'Regional' },
-    { id: 'TR-02', name: 'Manzini Express Haulers', rate: 800, region: 'Manzini' },
-    { id: 'TR-03', name: 'Shiselweni Linkers', rate: 1200, region: 'Shiselweni' },
+    { id: 'TR-01', name: 'Logistics Coop', ratePerKm: 12.5, region: 'Regional' },
+    { id: 'TR-02', name: 'Manzini Express Haulers', ratePerKm: 15.0, region: 'Manzini' },
+    { id: 'TR-03', name: 'Shiselweni Linkers', ratePerKm: 10.0, region: 'Shiselweni' },
   ];
 
   const isExtension = user?.actorType === ActorType.Extension;
+
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+        const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             (product.sellerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             product.id.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesRegion = filterRegion === 'All' || product.region === filterRegion;
+        return matchesSearch && matchesRegion && product.status === 'Active';
+    });
+  }, [products, searchTerm, filterRegion]);
+
+  const vettingProducts = useMemo(() => {
+    if (!isExtension) return [];
+    return products.filter(p => p.status === 'Pending Approval' && p.tinkhundla === user?.tinkhundla);
+  }, [products, isExtension, user]);
+
+  useEffect(() => {
+    if ((window as any).google?.maps) { setGoogleApiLoaded(true); return; }
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry`;
+    script.async = true;
+    script.onload = () => setGoogleApiLoaded(true);
+    document.head.appendChild(script);
+  }, []);
 
   useEffect(() => {
     const init = async () => {
         const meta = await Get_System_Metadata();
         setSystemMetadata(meta);
+        const allEnts = await db.getAll<any>(DbTable.Enterprises);
+        setEnterprises(allEnts);
+        
         if (user) {
-            const enterprises = await db.getAll<any>(DbTable.Enterprises);
-            const units = enterprises
+            const units = allEnts
               .filter(e => e.ownerId === user.id || e.organizationId === user.organizationId)
-              .flatMap(e => (e.units || []).map((u: any) => ({ ...u, enterpriseName: e.name })));
+              .flatMap(e => (e.units || []).map((u: any) => ({ ...u, enterpriseName: e.name, enterpriseGps: e.gps })));
             setMyUnits(units);
         }
         const orders = await db.getAll<MarketOrder>(DbTable.Orders);
@@ -72,26 +108,6 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
     };
     init();
   }, [user]);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                             p.sellerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             p.id.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesRegion = filterRegion === 'All' || p.region === filterRegion;
-        const isActive = p.status === 'Active';
-        return matchesSearch && matchesRegion && isActive;
-    });
-  }, [products, searchTerm, filterRegion]);
-
-  const vettingProducts = useMemo(() => {
-    if (!isExtension) return [];
-    return products.filter(p => {
-        const matchesLocation = p.tinkhundla === user?.tinkhundla || p.region === user?.region;
-        const isPending = p.status === 'Pending Approval';
-        return matchesLocation && isPending;
-    });
-  }, [products, user, isExtension]);
 
   const cartGroupedBySeller = useMemo(() => {
     return cart.reduce((acc, item) => {
@@ -102,8 +118,98 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
     }, {} as Record<string, MarketCartItem[]>);
   }, [cart]);
 
+  useEffect(() => {
+    if (!googleApiLoaded || viewStep !== 'cart') return;
+
+    const calculateDistances = async () => {
+        const distances: Record<string, { km: number, origin: any, destination: any }> = {};
+        const service = new (window as any).google.maps.DistanceMatrixService();
+
+        for (const sellerId of Object.keys(cartGroupedBySeller)) {
+            const firstItem = cartGroupedBySeller[sellerId][0];
+            const sellerEnt = enterprises.find(e => e.ownerId === sellerId || e.organizationId === sellerId);
+            const destUnit = myUnits.find(u => u.id === firstItem.destinationUnitId);
+
+            if (sellerEnt?.gps && destUnit?.enterpriseGps) {
+                try {
+                    const response = await new Promise<any>((resolve, reject) => {
+                        service.getDistanceMatrix({
+                            origins: [new (window as any).google.maps.LatLng(sellerEnt.gps.lat, sellerEnt.gps.lng)],
+                            destinations: [new (window as any).google.maps.LatLng(destUnit.enterpriseGps.lat, destUnit.enterpriseGps.lng)],
+                            travelMode: (window as any).google.maps.TravelMode.DRIVING,
+                        }, (res: any, status: any) => {
+                            if (status === 'OK') resolve(res);
+                            else reject(status);
+                        });
+                    });
+
+                    const element = response.rows[0].elements[0];
+                    if (element.status === 'OK') {
+                        distances[sellerId] = {
+                            km: element.distance.value / 1000,
+                            origin: sellerEnt.gps,
+                            destination: destUnit.enterpriseGps
+                        };
+                    }
+                } catch (e) {
+                    console.error("Distance calculation failed", e);
+                }
+            }
+        }
+        setRouteDistances(distances);
+    };
+
+    calculateDistances();
+  }, [googleApiLoaded, cart, viewStep, cartGroupedBySeller, enterprises, myUnits]);
+
+  useEffect(() => {
+    if (!googleApiLoaded || !mapRef.current || viewStep !== 'cart') return;
+
+    const map = new (window as any).google.maps.Map(mapRef.current, {
+        zoom: 7,
+        center: { lat: -26.5, lng: 31.5 },
+        styles: [
+            { featureType: "all", elementType: "labels.text.fill", stylers: [{ color: "#ffffff" }] },
+            { featureType: "water", elementType: "geometry", stylers: [{ color: "#1B4D3E" }] }
+        ]
+    });
+
+    const directionsService = new (window as any).google.maps.DirectionsService();
+    
+    Object.keys(routeDistances).forEach((sId, idx) => {
+        const route = routeDistances[sId];
+        const directionsRenderer = new (window as any).google.maps.DirectionsRenderer({
+            map: map,
+            suppressMarkers: false,
+            polylineOptions: {
+                strokeColor: idx % 2 === 0 ? '#FBBF24' : '#10B981',
+                strokeWeight: 4
+            }
+        });
+
+        directionsService.route({
+            origin: route.origin,
+            destination: route.destination,
+            travelMode: (window as any).google.maps.TravelMode.DRIVING
+        }, (result: any, status: any) => {
+            if (status === 'OK') {
+                directionsRenderer.setDirections(result);
+            }
+        });
+    });
+  }, [googleApiLoaded, routeDistances, viewStep]);
+
   const handleUpdateCartQty = (id: string, delta: number) => {
-    setCart(prev => prev.map(item => item.id === id ? { ...item, cartQty: Math.max(1, item.cartQty + delta) } : item));
+    setCart(prev => prev.map(item => item.id === id ? { ...item, cartQty: Math.max(0.01, item.cartQty + delta) } : item));
+  };
+
+  const handleSetCartQty = (id: string, value: number) => {
+    setCart(prev => prev.map(item => item.id === id ? { ...item, cartQty: Math.max(0.01, value) } : item));
+  };
+
+  const calculateTransportTotal = () => {
+    if (!selectedTransport) return 0;
+    return (Object.values(routeDistances) as { km: number }[]).reduce((sum, route) => sum + (route.km * selectedTransport.ratePerKm), 0);
   };
 
   const handlePlaceOrder = async () => {
@@ -117,15 +223,19 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
     for (const sId of sellers) {
         const items = cartGroupedBySeller[sId];
         const subTotal = items.reduce((s, i) => s + (i.price * i.cartQty), 0);
+        const route = routeDistances[sId];
+        const transCost = route ? (route.km * selectedTransport.ratePerKm) : 0;
+
         const order: MarketOrder = {
             id: `ORD-${Date.now()}-${sId.slice(-4)}`,
             items: items,
-            total: subTotal + (selectedTransport.rate / sellers.length),
+            total: subTotal + transCost,
             status: 'Request',
             customerName: user.name, customerId: user.id!,
             sellerId: sId, sellerName: items[0].sellerName || 'Institutional Producer',
             date: new Date().toISOString(), region: user.region as Region,
-            transportServiceId: selectedTransport.id, transportServiceName: selectedTransport.name
+            transportServiceId: selectedTransport.id, transportServiceName: selectedTransport.name,
+            notes: route ? `Distance: ${route.km.toFixed(2)} Km via ${selectedTransport.name}` : undefined
         };
         newOrders.push(order);
         await db.insert(DbTable.Orders, order);
@@ -156,7 +266,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                    if (unit) unit.resources = unit.resources?.map((r: any) => (r.catalogueRef === item.id || r.name === item.name) ? { ...r, quantity: Math.max(0, r.quantity - item.cartQty) } : r);
                 }
             });
-            await db.update(Table.Enterprises, sellerEnt.id, sellerEnt);
+            await db.update(DbTable.Enterprises, sellerEnt.id, sellerEnt);
         }
 
         const buyerEnt = enterprises.find(e => e.ownerId === user?.id || e.organizationId === user?.organizationId);
@@ -170,7 +280,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                     else unit.resources.push({ id: `RES-${Date.now()}`, name: item.name, type: ResourceType.Consumable, quantity: item.cartQty, startingQuantity: item.cartQty, unitCost: item.price, assignedUnitId: item.destinationUnitId!, status: 'Available', category: item.category || 'Commodity' });
                 }
             });
-            await db.update(Table.Enterprises, buyerEnt.id, buyerEnt);
+            await db.update(DbTable.Enterprises, buyerEnt.id, buyerEnt);
         }
     }
     setGlobalOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updates } : o));
@@ -202,21 +312,21 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
 
     return (
         <div className="flex gap-2">
-            <button onClick={() => handleStatusUpdate(order.id, 'Cancelled')} className="px-3 py-2 bg-rose-50 text-rose-600 rounded-lg text-[9px] font-black uppercase hover:bg-rose-100">Void Node</button>
+            <button onClick={() => handleStatusUpdate(order.id, 'Cancelled')} className="px-3 py-2 bg-rose-50 text-rose-600 rounded-lg text-[9px] font-black uppercase hover:bg-rose-100 font-black">Void Node</button>
             {order.status === 'Request' && isSeller && (
-                <button onClick={() => handleStatusUpdate(order.id, 'Payment')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-indigo-700">Confirm Stock Availability</button>
+                <button onClick={() => handleStatusUpdate(order.id, 'Payment')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-indigo-700 font-black">Confirm Stock Availability</button>
             )}
             {order.status === 'Payment' && isBuyer && (
-                <button onClick={() => setOrderEvidence({ id: order.id, image: '', ref: '' })} className="px-4 py-2 bg-[#1B4D3E] text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-900">Transmit PoP Evidence</button>
+                <button onClick={() => setOrderEvidence({ id: order.id, image: '', ref: '' })} className="px-4 py-2 bg-[#1B4D3E] text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-900 font-black">Transmit PoP Evidence</button>
             )}
             {order.status === 'Confirmation' && isSeller && (
-                <button onClick={() => handleStatusUpdate(order.id, 'Processing')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-700">Audit & Initialize Process</button>
+                <button onClick={() => handleStatusUpdate(order.id, 'Processing')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-700 font-black">Audit & Initialize Process</button>
             )}
             {order.status === 'Processing' && isSeller && (
-                <button onClick={() => handleStatusUpdate(order.id, 'Dispatched')} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-purple-700">Dispatch Logistics Node</button>
+                <button onClick={() => handleStatusUpdate(order.id, 'Dispatched')} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-purple-700 font-black">Dispatch Logistics Node</button>
             )}
             {order.status === 'Dispatched' && isBuyer && (
-                <button onClick={() => handleStatusUpdate(order.id, 'Received')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-700">Close Transaction Node</button>
+                <button onClick={() => handleStatusUpdate(order.id, 'Received')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-700 font-black">Close Transaction Node</button>
             )}
         </div>
     );
@@ -249,6 +359,33 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
         <div className="flex-1 overflow-y-auto no-scrollbar pb-20">
             {viewStep === 'browse' && (
                 <div className="space-y-6">
+                    {/* Guest Call to Action Banner */}
+                    {user?.role === UserRole.Guest && (
+                        <div className="mb-8 p-8 bg-amber-50 border-2 border-amber-100 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-8 animate-fade-in shadow-xl relative overflow-hidden">
+                            <div className="flex items-center gap-6 relative z-10">
+                                <div className="p-5 bg-amber-100 text-amber-700 rounded-3xl shadow-inner border border-amber-200/50">
+                                    <UserPlus size={32}/>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-[10px] font-black text-amber-900 uppercase tracking-[0.3em]">Restricted Trading Mode</p>
+                                    <h4 className="text-lg font-black text-amber-800 leading-tight">Register your institutional node to source from verified producers.</h4>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4 relative z-10">
+                                <button 
+                                    onClick={onRegisterClick}
+                                    className="px-8 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-emerald-900 transition-all active:scale-95 flex items-center gap-2"
+                                >
+                                    Register Now <ArrowRight size={16}/>
+                                </button>
+                                <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-amber-200 text-[9px] font-black text-amber-600 uppercase tracking-widest animate-pulse">
+                                    <ShieldAlert size={14}/> Authentication Required
+                                </div>
+                            </div>
+                            <UserPlus size={180} className="absolute -bottom-10 -right-10 text-amber-100 pointer-events-none opacity-40 rotate-12" />
+                        </div>
+                    )}
+
                     <div className="flex flex-col md:flex-row gap-4 mb-8">
                         <div className="relative flex-1">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
@@ -292,18 +429,34 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                                 <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Pricing</p>
                                                 <p className="text-xl font-black text-[#1B4D3E]">E {product.price} <span className="text-[10px] text-slate-400">/ {product.unit}</span></p>
                                             </div>
-                                            <button 
-                                                onClick={() => {
-                                                    if (!cart.some(i => i.id === product.id)) {
-                                                        setCart(prev => [...prev, { ...product, cartQty: 1 }]);
-                                                    } else {
-                                                        handleUpdateCartQty(product.id, 1);
-                                                    }
-                                                }} 
-                                                className="bg-[#1B4D3E] text-white p-3.5 rounded-2xl hover:bg-[#143d31] transition-all shadow-lg active:scale-90"
-                                            >
-                                                <ShoppingCart size={20} />
-                                            </button>
+                                            
+                                            {user?.role !== UserRole.Guest ? (
+                                                <button 
+                                                    onClick={() => {
+                                                        if (!cart.some(i => i.id === product.id)) {
+                                                            setCart(prev => [...prev, { ...product, cartQty: 1 }]);
+                                                        } else {
+                                                            handleUpdateCartQty(product.id, 1);
+                                                        }
+                                                    }} 
+                                                    className="bg-[#1B4D3E] text-white p-3.5 rounded-2xl hover:bg-[#143d31] transition-all shadow-lg active:scale-90"
+                                                >
+                                                    <ShoppingCart size={20} />
+                                                </button>
+                                            ) : (
+                                                <div className="group/lock relative">
+                                                    <button 
+                                                        disabled
+                                                        className="bg-slate-50 text-slate-300 px-4 py-3 rounded-2xl cursor-not-allowed border border-slate-100 flex items-center gap-2"
+                                                    >
+                                                        <Lock size={18} />
+                                                        <span className="text-[9px] font-black uppercase tracking-tight">Private Node</span>
+                                                    </button>
+                                                    <div className="absolute bottom-full right-0 mb-3 w-44 bg-slate-900 text-white text-[9px] font-black uppercase p-3 rounded-xl opacity-0 group-hover/lock:opacity-100 pointer-events-none transition-all shadow-2xl translate-y-1 group-hover/lock:translate-y-0 text-center z-20">
+                                                        Please register or login to start ordering
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -354,8 +507,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-3 shrink-0">
-                                        <button onClick={() => handleVerifyProduct(product.id, true)} className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"><CheckCircle2 size={18}/> Authorize Node</button>
-                                        <button onClick={() => handleVerifyProduct(product.id, false)} className="px-8 py-4 bg-white border border-slate-200 text-rose-500 rounded-2xl font-black uppercase text-xs tracking-widest hover:border-rose-300 transition-all">Reject Entry</button>
+                                        <button onClick={() => handleVerifyProduct(product.id, true)} className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 font-black"><CheckCircle2 size={18}/> Authorize Node</button>
+                                        <button onClick={() => handleVerifyProduct(product.id, false)} className="px-8 py-4 bg-white border border-slate-200 text-rose-500 rounded-2xl font-black uppercase text-xs tracking-widest hover:border-rose-300 transition-all font-black">Reject Entry</button>
                                     </div>
                                 </div>
                             ))}
@@ -371,100 +524,182 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
             )}
 
             {viewStep === 'cart' && (
-                <div className="max-w-4xl mx-auto space-y-12 animate-fade-in">
-                    {cart.length > 0 ? (
-                        <>
-                            {Object.keys(cartGroupedBySeller).map(sId => (
-                                <div key={sId} className="space-y-4">
-                                    <div className="flex items-center gap-2 px-2 text-[#1B4D3E] font-black uppercase text-[10px] tracking-widest"><Store size={14} className="text-[#FBBF24]"/> {cartGroupedBySeller[sId][0].sellerName} Hub</div>
-                                    {cartGroupedBySeller[sId].map(item => (
-                                        <div key={item.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-6">
-                                            <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-slate-100"><img src={item.image || PLACE_HOLDER_IMAGE} className="w-full h-full object-cover" /></div>
-                                            <div className="flex-1"><p className="font-black text-slate-800 text-sm leading-tight">{item.name}</p><p className="text-[9px] text-slate-400 uppercase mt-1">E {item.price} / {item.unit}</p></div>
-                                            <div className="flex flex-col gap-2">
-                                                <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-2 py-1">
-                                                    <button onClick={() => handleUpdateCartQty(item.id, -1)} className="p-1 hover:text-[#1B4D3E] transition-colors"><Minus size={14}/></button>
-                                                    <span className="text-xs font-black min-w-[20px] text-center">{item.cartQty}</span>
-                                                    <button onClick={() => handleUpdateCartQty(item.id, 1)} className="p-1 hover:text-[#1B4D3E] transition-colors"><Plus size={14}/></button>
-                                                </div>
-                                                <select value={item.destinationUnitId || ''} onChange={(e) => setCart(prev => prev.map(i => i.id === item.id ? { ...i, destinationUnitId: e.target.value } : i))} className="w-48 p-2 bg-indigo-50 border border-indigo-100 rounded-lg text-[9px] font-black uppercase text-indigo-700 outline-none cursor-pointer">
-                                                    <option value="">Assign Destination Unit...</option>
-                                                    {myUnits.map(u => <option key={u.id} value={u.id}>{u.enterpriseName} - {u.name}</option>)}
-                                                </select>
+                <div className="max-w-6xl mx-auto space-y-12 animate-fade-in">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 space-y-8">
+                            {cart.length > 0 ? (
+                                <>
+                                    {Object.keys(cartGroupedBySeller).map(sId => (
+                                        <div key={sId} className="space-y-4">
+                                            <div className="flex items-center justify-between px-4">
+                                                <div className="flex items-center gap-2 text-[#1B4D3E] font-black uppercase text-[10px] tracking-widest"><Store size={14} className="text-[#FBBF24]"/> {cartGroupedBySeller[sId][0].sellerName} Hub</div>
+                                                {routeDistances[sId] && (
+                                                    <div className="flex items-center gap-2 text-[9px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
+                                                        <Route size={12}/> {routeDistances[sId].km.toFixed(1)} Km to Destination
+                                                    </div>
+                                                )}
                                             </div>
-                                            <button onClick={() => setCart(prev => prev.filter(i => i.id !== item.id))} className="text-slate-300 hover:text-rose-500 p-2 transition-colors"><Trash2 size={20}/></button>
+                                            {cartGroupedBySeller[sId].map(item => (
+                                                <div key={item.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-6">
+                                                    <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-slate-100"><img src={item.image || PLACE_HOLDER_IMAGE} className="w-full h-full object-cover" /></div>
+                                                    <div className="flex-1"><p className="font-black text-slate-800 text-sm leading-tight">{item.name}</p><p className="text-[9px] text-slate-400 uppercase mt-1">E {item.price} / {item.unit}</p></div>
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-2 py-1">
+                                                            <button onClick={() => handleUpdateCartQty(item.id, -1)} className="p-1 hover:text-[#1B4D3E] transition-colors"><Minus size={14}/></button>
+                                                            <input 
+                                                                type="number"
+                                                                step="any"
+                                                                value={item.cartQty}
+                                                                onChange={(e) => handleSetCartQty(item.id, parseFloat(e.target.value) || 0.01)}
+                                                                className="text-xs font-black w-24 text-center bg-transparent border-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                            />
+                                                            <button onClick={() => handleUpdateCartQty(item.id, 1)} className="p-1 hover:text-[#1B4D3E] transition-colors"><Plus size={14}/></button>
+                                                        </div>
+                                                        <select value={item.destinationUnitId || ''} onChange={(e) => setCart(prev => prev.map(i => i.id === item.id ? { ...i, destinationUnitId: e.target.value } : i))} className="w-48 p-2 bg-indigo-50 border border-indigo-100 rounded-lg text-[9px] font-black uppercase text-indigo-700 outline-none cursor-pointer font-black">
+                                                            <option value="">Assign Destination Unit...</option>
+                                                            {myUnits.map(u => <option key={u.id} value={u.id}>{u.enterpriseName} - {u.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <button onClick={() => setCart(prev => prev.filter(i => i.id !== item.id))} className="text-slate-300 hover:text-rose-500 p-2 transition-colors"><Trash2 size={20}/></button>
+                                                </div>
+                                            ))}
                                         </div>
                                     ))}
+                                </>
+                            ) : (
+                                <div className="py-20 text-center flex flex-col items-center justify-center space-y-6">
+                                    <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+                                        <ShoppingBag size={48} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Commerce Basket Empty</h3>
+                                        <p className="text-slate-400 font-medium">Browse the Trade Hub to select vetted production lots.</p>
+                                    </div>
+                                    <button onClick={() => setViewStep('browse')} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg font-black">Start Sourcing</button>
                                 </div>
-                            ))}
-                            <div className="bg-[#1B4D3E] p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden">
-                                <div className="relative z-10">
-                                    <div className="flex items-center gap-3 mb-6"><TruckIcon size={24} className="text-[#FBBF24]"/><h4 className="text-sm font-black uppercase tracking-widest">Coordinated Logistics</h4></div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {transportProviders.map(tp => (
-                                            <button key={tp.id} onClick={() => setSelectedTransport(tp)} className={`p-5 rounded-2xl border transition-all text-left group ${selectedTransport?.id === tp.id ? 'bg-white text-[#1B4D3E] border-white shadow-xl scale-105' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
-                                                <p className="text-[10px] font-black uppercase opacity-60 group-hover:opacity-100">{tp.name}</p>
-                                                <p className="text-lg font-black mt-2">E {tp.rate.toLocaleString()}</p>
-                                            </button>
-                                        ))}
+                            )}
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Route Visualization Map */}
+                            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col h-[500px]">
+                                <div className="p-5 border-b border-slate-100 bg-[#1B4D3E] text-white flex justify-between items-center shrink-0">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-white/10 rounded-xl"><Navigation size={20} className="text-[#FBBF24]"/></div>
+                                        <h4 className="text-xs font-black uppercase tracking-widest">Logistics Route Node</h4>
+                                    </div>
+                                    {Object.keys(routeDistances).length > 0 && <span className="bg-[#FBBF24] text-[#1B4D3E] px-3 py-1 rounded-lg text-[9px] font-black uppercase">{Object.keys(routeDistances).length} Routes Active</span>}
+                                </div>
+                                <div ref={mapRef} className="flex-1 bg-slate-100" />
+                                <div className="p-5 bg-slate-50 border-t border-slate-100 space-y-3 shrink-0">
+                                    <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                        <span>Total Distance Matrix</span>
+                                        <span className="text-[#1B4D3E]">{(Object.values(routeDistances) as { km: number }[]).reduce((s, r) => s + r.km, 0).toFixed(1)} Km</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                        <div className="bg-[#FBBF24] h-full rounded-full" style={{ width: '60%' }} />
                                     </div>
                                 </div>
-                                <Activity size={200} className="absolute -bottom-20 -right-20 text-white/5 pointer-events-none rotate-12" />
                             </div>
-                            <div className="p-8 bg-slate-50 rounded-[2rem] flex justify-between items-center border border-slate-200">
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Transaction Value</p>
-                                    <p className="text-3xl font-black text-[#1B4D3E]">
-                                        E {(cart.reduce((s, i) => s + (i.price * i.cartQty), 0) + (selectedTransport?.rate || 0)).toLocaleString()}
-                                    </p>
+
+                            {/* Transport Logistics Selector */}
+                            <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col">
+                                <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+                                    <TruckIcon size={24} className="text-[#1B4D3E]"/>
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-[#1B4D3E]">Coordinated Logistics</h4>
                                 </div>
-                                <button onClick={handlePlaceOrder} disabled={cart.length === 0 || !selectedTransport || isSubmittingOrder} className="px-12 py-5 bg-[#FBBF24] text-[#1B4D3E] rounded-2xl font-black uppercase text-sm tracking-widest shadow-xl hover:bg-yellow-400 transition-all active:scale-95 disabled:opacity-50">
-                                    {isSubmittingOrder ? <Loader2 size={24} className="animate-spin" /> : 'Commit Order'}
-                                </button>
+                                <div className="p-6 space-y-3 bg-slate-50/50">
+                                    {transportProviders.map(tp => (
+                                        <button key={tp.id} onClick={() => setSelectedTransport(tp)} className={`w-full p-5 rounded-2xl border-2 transition-all text-left group flex justify-between items-center ${selectedTransport?.id === tp.id ? 'bg-white border-[#1B4D3E] shadow-lg scale-[1.02]' : 'bg-white border-slate-100 hover:border-[#1B4D3E]/30'}`}>
+                                            <div>
+                                                <p className="text-[10px] font-black uppercase text-[#1B4D3E] group-hover:text-emerald-700">{tp.name}</p>
+                                                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-tighter">Rate: E {tp.ratePerKm.toFixed(2)} / Km</p>
+                                            </div>
+                                            {selectedTransport?.id === tp.id && <CheckCircle2 className="text-[#1B4D3E]" size={20}/>}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="p-8 space-y-6 border-t border-slate-100">
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Production Total</span><span className="text-sm font-black text-slate-700">E {cart.reduce((s, i) => s + (i.price * i.cartQty), 0).toLocaleString()}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-[10px] font-black text-slate-400 uppercase">Logistics Fee</span><span className="text-sm font-black text-indigo-600">E {calculateTransportTotal().toLocaleString()}</span></div>
+                                        <div className="pt-4 border-t border-slate-100 flex justify-between items-end">
+                                            <div><p className="text-[10px] font-black text-slate-400 uppercase">Grand Total Settlement</p><p className="text-3xl font-black text-[#1B4D3E]">E {(cart.reduce((s, i) => s + (i.price * i.cartQty), 0) + calculateTransportTotal()).toLocaleString()}</p></div>
+                                        </div>
+                                    </div>
+                                    <button onClick={handlePlaceOrder} disabled={cart.length === 0 || !selectedTransport || isSubmittingOrder || Object.keys(routeDistances).length === 0} className="w-full py-5 bg-[#FBBF24] text-[#1B4D3E] rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-yellow-400 transition-all active:scale-95 disabled:opacity-50 font-black">
+                                        {isSubmittingOrder ? <Loader2 size={24} className="animate-spin mx-auto" /> : 'Commit Synchronized Order'}
+                                    </button>
+                                </div>
                             </div>
-                        </>
-                    ) : (
-                        <div className="py-20 text-center flex flex-col items-center justify-center space-y-6">
-                            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
-                                <ShoppingBag size={48} />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Commerce Basket Empty</h3>
-                                <p className="text-slate-400 font-medium">Browse the Trade Hub to select vetted production lots.</p>
-                            </div>
-                            <button onClick={() => setViewStep('browse')} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg">Start Sourcing</button>
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
 
             {viewStep === 'orders' && (
                 <div className="space-y-4 animate-fade-in max-w-5xl mx-auto">
                     {globalOrders.length > 0 ? (
-                        globalOrders.map(order => (
-                            <div key={order.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 flex flex-col md:flex-row justify-between items-center gap-6 group hover:shadow-xl transition-all">
-                                <div className="flex items-center gap-6">
-                                    <div className="p-4 bg-indigo-50 text-indigo-600 rounded-3xl shadow-inner group-hover:rotate-3 transition-transform"><Package size={24}/></div>
-                                    <div>
-                                        <div className="flex items-center gap-3">
-                                            <p className="text-[10px] font-mono font-black text-indigo-500 uppercase tracking-tight">{order.id}</p>
-                                            <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase ${order.status === 'Received' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                                                {order.status}
-                                            </span>
+                        globalOrders.map(order => {
+                            const isSeller = order.sellerId === user?.id || order.sellerId === user?.organizationId;
+                            return (
+                                <div key={order.id} className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 flex flex-col gap-6 group hover:shadow-xl transition-all">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                                        <div className="flex items-center gap-6">
+                                            <div className="p-4 bg-indigo-50 text-indigo-600 rounded-3xl shadow-inner group-hover:rotate-3 transition-transform"><Package size={24}/></div>
+                                            <div>
+                                                <div className="flex items-center gap-3">
+                                                    <p className="text-[10px] font-mono font-black text-indigo-500 uppercase tracking-tight">{order.id}</p>
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-[8px] font-black uppercase ${order.status === 'Received' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                        {order.status}
+                                                    </span>
+                                                </div>
+                                                <h5 className="font-black text-slate-800 mt-2 text-lg leading-none">{order.sellerName} <ArrowRight className="inline-block mx-2 text-slate-300" size={14}/> {order.customerName}</h5>
+                                                <div className="flex items-center gap-4 mt-2">
+                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{new Date(order.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                                    {order.notes && <p className="text-[9px] font-black text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded uppercase">{order.notes}</p>}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <h5 className="font-black text-slate-800 mt-2 text-lg leading-none">{order.sellerName} <ArrowRight className="inline-block mx-2 text-slate-300" size={14}/> {order.customerName}</h5>
-                                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-2 tracking-widest">{new Date(order.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} • {order.items.length} Production Lots</p>
+                                        <div className="flex items-center gap-8">
+                                            <div className="text-right">
+                                                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Order Settlement</p>
+                                                <p className="text-2xl font-black text-[#1B4D3E]">E {order.total.toLocaleString()}</p>
+                                            </div>
+                                            {renderOrderActions(order)}
+                                        </div>
                                     </div>
+
+                                    {/* PoP Audit Section for Sellers and Buyers */}
+                                    {order.popRef && (
+                                        <div className="bg-slate-50 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6 border border-slate-100 animate-slide-up">
+                                            <div className="flex-1 space-y-2">
+                                                <div className="flex items-center gap-2 text-[8px] font-black text-slate-400 uppercase tracking-widest"><CreditCard size={12} className="text-indigo-500"/> Settlement Evidence Transmitted</div>
+                                                <div className="flex items-center gap-4">
+                                                    <p className="text-xs font-black text-slate-700">Ref: <span className="font-mono text-indigo-600 uppercase">{order.popRef}</span></p>
+                                                    {isSeller && (
+                                                        <div className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-[8px] font-black uppercase flex items-center gap-1.5 animate-pulse">
+                                                            <ShieldAlert size={10}/> Verification Required
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {order.popImage && (
+                                                <button 
+                                                    onClick={() => setAuditImage(order.popImage!)}
+                                                    className="w-24 h-24 rounded-xl overflow-hidden border-2 border-white shadow-lg relative group cursor-zoom-in"
+                                                >
+                                                    <img src={order.popImage} className="w-full h-auto object-cover" />
+                                                    <div className="absolute inset-0 bg-indigo-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                        <Maximize2 className="text-white" size={20}/>
+                                                    </div>
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-8">
-                                    <div className="text-right">
-                                        <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Order Settlement</p>
-                                        <p className="text-2xl font-black text-[#1B4D3E]">E {order.total.toLocaleString()}</p>
-                                    </div>
-                                    {renderOrderActions(order)}
-                                </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="py-20 text-center opacity-20">
                             <History size={64} className="mx-auto mb-4" />
@@ -482,8 +717,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                             <p className="text-green-300 text-sm font-bold uppercase tracking-[0.3em] mt-2">Manage Active Listings & Vetting Status</p>
                         </div>
                         <button 
-                            onClick={() => alert("To list new produce, go to the Operations Module and 'Finalize Harvest' for any active production cycle.")} 
-                            className="relative z-10 px-8 py-4 bg-[#FBBF24] text-[#1B4D3E] rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transition-transform"
+                            onClick={() => alert("To list new produce, go to the Operations Module and 'Harvest Produce' for any active production cycle.")} 
+                            className="relative z-10 px-8 py-4 bg-[#FBBF24] text-[#1B4D3E] rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transition-transform font-black"
                         >
                             Sync From Production
                         </button>
@@ -496,6 +731,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                 <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 bg-slate-100"><img src={p.image || PLACE_HOLDER_IMAGE} className="w-full h-full object-cover" /></div>
                                 <div className="flex-1 space-y-2">
                                     <div className="flex justify-between items-start">
+                                        {/* Fix: Added missing opening tag for h4 below */}
                                         <h4 className="font-black text-slate-800 text-sm">{p.name}</h4>
                                         <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${p.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{p.status}</span>
                                     </div>
@@ -531,7 +767,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                         <button 
                             onClick={handleTraceSearch}
                             disabled={isSearchingTrace || !traceInput.trim()}
-                            className="absolute right-3 top-3 bottom-3 px-6 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50"
+                            className="absolute right-3 top-3 bottom-3 px-6 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-50 font-black"
                         >
                             {isSearchingTrace ? <Loader2 className="animate-spin" size={16}/> : 'Verify Thread'}
                         </button>
@@ -576,9 +812,24 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
             )}
 
             {viewStep === 'success' && (
-                <div className="text-center py-20 animate-slide-up"><div className="w-32 h-32 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-500 mb-8 shadow-inner"><CheckCircle size={64}/></div><h3 className="text-3xl font-black text-slate-800 tracking-tight">Order Split & Initialized</h3><p className="text-slate-500 mt-2 font-medium mb-10">Requests are now being vetted by sellers.</p><button onClick={() => setViewStep('orders')} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs">View My Orders</button></div>
+                <div className="text-center py-20 animate-slide-up"><div className="w-32 h-32 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-500 mb-8 shadow-inner"><CheckCircle size={64}/></div><h3 className="text-3xl font-black text-slate-800 tracking-tight">Order Initialized</h3><p className="text-slate-500 mt-2 font-medium mb-10">Institutional requests are now being synchronized.</p><button onClick={() => setViewStep('orders')} className="px-10 py-4 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs font-black">View My Orders</button></div>
             )}
         </div>
+
+        {/* Audit Full-Screen Overlay */}
+        {auditImage && (
+            <div className="fixed inset-0 z-[700] flex items-center justify-center bg-slate-950/95 p-4 sm:p-10 animate-fade-in" onClick={() => setAuditImage(null)}>
+                <button className="absolute top-10 right-10 p-4 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all">
+                    <X size={32}/>
+                </button>
+                <div className="max-w-4xl max-h-full overflow-hidden rounded-3xl shadow-2xl border border-white/10" onClick={e => e.stopPropagation()}>
+                    <img src={auditImage} className="w-full h-auto object-contain" />
+                </div>
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 px-8 py-3 bg-white/10 backdrop-blur-md rounded-full text-white text-xs font-black uppercase tracking-widest border border-white/20">
+                    High Resolution Settlement Audit Node
+                </div>
+            </div>
+        )}
 
         {orderEvidence && (
             <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
@@ -587,7 +838,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                     <h3 className="text-2xl font-black uppercase tracking-tight text-[#1B4D3E]">Confirm Settlement</h3>
                     <div className="space-y-4">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Digital Reference Number</label>
-                        <input value={orderEvidence.ref} onChange={e => setOrderEvidence({ ...orderEvidence, ref: e.target.value })} placeholder="Bank Ref / Trans ID" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white" />
+                        <input value={orderEvidence.ref} onChange={e => setOrderEvidence({ ...orderEvidence, ref: e.target.value })} placeholder="Bank Ref / Trans ID" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white shadow-inner" />
                     </div>
                     <div className="border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center relative group hover:border-[#1B4D3E]/30 transition-all bg-slate-50/50">
                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={e => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onloadend = () => setOrderEvidence({ ...orderEvidence, image: reader.result as string }); reader.readAsDataURL(file); }}} />
@@ -603,7 +854,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                             </div>
                         )}
                     </div>
-                    <button onClick={() => handleStatusUpdate(orderEvidence.id, 'Confirmation', { image: orderEvidence.image, ref: orderEvidence.ref })} disabled={!orderEvidence.ref || !orderEvidence.image} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-[#143d31] transition-all disabled:opacity-50">Commit Transaction Thread</button>
+                    <button onClick={handleStatusUpdate(orderEvidence.id, 'Confirmation', { image: orderEvidence.image, ref: orderEvidence.ref })} disabled={!orderEvidence.ref || !orderEvidence.image} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-[#143d31] transition-all disabled:opacity-50 font-black">Commit Transaction Thread</button>
                 </div>
             </div>
         )}

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
@@ -13,7 +12,7 @@ import CapacityBuilding from './components/CapacityBuilding';
 import Information from './components/Information';
 import ProfileModal from './components/ProfileModal';
 import { SalesProduct, MarketCartItem, MarketOrder, UserRole, UserProfile } from './types';
-import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info, MapPinned } from 'lucide-react';
+import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info, MapPinned, MessageSquareText } from 'lucide-react';
 import { Initialize_Database, View_Trading_Catalogue_Items } from './services/adminDataService';
 
 const AccessDenied = ({ message }: { message: string }) => (
@@ -37,7 +36,6 @@ const App: React.FC = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   const isMobile = windowWidth < 768;
-  const isTablet = windowWidth >= 768 && windowWidth < 1024;
   const isDesktop = windowWidth >= 1024;
 
   useEffect(() => {
@@ -70,30 +68,37 @@ const App: React.FC = () => {
       }
   };
 
+  const handleLogout = () => {
+      setUser(null);
+      setActiveTab('login');
+  };
+
   const renderContent = () => {
     if (!isDbReady) return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-[#1B4D3E]" size={48}/></div>;
     if (activeTab === 'login') return <Login onLogin={(u) => { setUser(u); setActiveTab('dashboard'); }} onRegister={() => setActiveTab('registry')} />;
     if (activeTab === 'registry') return <Registration onBackToLogin={() => setActiveTab('login')} onBackToHome={() => setActiveTab('dashboard')} />;
     
     switch (activeTab) {
-      case 'dashboard': return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
-      case 'market': return <Marketplace products={products} setProducts={setProducts} cart={marketCart} setCart={setMarketCart} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} user={user} />;
-      case 'production': return user?.role === UserRole.Farmer ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Farmers only." />;
+      case 'dashboard': return <Dashboard user={user} onRegister={() => setActiveTab('registry')} onOpenAdvisor={() => setIsAIAdvisorOpen(true)} />;
+      case 'market': return <Marketplace products={products} setProducts={setProducts} cart={marketCart} setCart={setMarketCart} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} user={user} onRegisterClick={() => setActiveTab('registry')} />;
+      case 'production': return (user?.role === UserRole.Farmer || user?.role === UserRole.Extension) ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Access restricted to Producers and Extension Officers." />;
       case 'admin': return (user?.role === UserRole.Government || user?.role === UserRole.Extension) ? <AdminModule currentUser={user} /> : <AccessDenied message="Authorized Officials only." />;
       case 'capacity': return <CapacityBuilding />;
       case 'info': return <Information />;
-      default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} />;
+      default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} onOpenAdvisor={() => setIsAIAdvisorOpen(true)} />;
     }
   };
 
   const commonNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20}/> },
     { id: 'market', label: 'Trade Hub', icon: <ShoppingCart size={20}/> },
+    { id: 'advisor', label: 'AI Advisor', icon: <MessageSquareText size={20}/> },
     { id: 'info', label: 'Information Centre', icon: <Info size={20}/> },
     { id: 'capacity', label: 'Capacity Building', icon: <BookOpen size={20}/> },
     ...(user?.role === UserRole.Farmer ? [{ id: 'production', label: 'Ops Manager', icon: <Factory size={20}/> }] : []),
+    ...(user?.role === UserRole.Extension ? [{ id: 'production', label: 'Outreach Hub', icon: <Factory size={20}/> }] : []),
     ...(user?.role === UserRole.Government ? [{ id: 'admin', label: 'Oversight', icon: <Shield size={20}/> }] : []),
-    ...(user?.role === UserRole.Extension ? [{ id: 'admin', label: 'Field Hub', icon: <MapPinned size={20}/> }] : [])
+    ...(user?.role === UserRole.Extension ? [{ id: 'admin', label: 'Field Registry', icon: <Shield size={20}/> }] : [])
   ];
 
   return (
@@ -103,7 +108,7 @@ const App: React.FC = () => {
         isCollapsed={isSidebarCollapsed} 
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
         user={user} 
-        onLogout={() => setUser(null)} 
+        onLogout={handleLogout} 
         onProfileClick={() => setIsProfileOpen(true)} 
         navItems={commonNavItems} 
         activeTab={activeTab} 
@@ -122,7 +127,7 @@ const App: React.FC = () => {
                 )}
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                      <span className="text-[10px] sm:text-[13px] font-black uppercase tracking-tight text-[#1B4D3E]">AIIS National Node</span>
+                      <span className="text-[10px] sm:text-[13px] font-black uppercase tracking-tight text-[#1B4D3E]">AIIS Node</span>
                       {isDesktop && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black rounded-md uppercase border border-emerald-100 ml-2">v4.0 Enterprise</span>}
                   </div>
                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest hidden xs:block">Eswatini • Agriculture</span>
@@ -165,13 +170,14 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-black text-sm sm:text-base uppercase tracking-tight leading-none">AIIS Expert</h3>
-                    <p className="text-[9px] text-green-300 font-bold uppercase tracking-widest mt-1">National Knowledge Node</p>
+                    <p className="text-[9px] text-green-300 font-bold uppercase tracking-widest mt-1">Knowledge Node</p>
                   </div>
                 </div>
                 <button onClick={() => setIsAIAdvisorOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all text-white/60 hover:text-white"><X size={20} /></button>
             </div>
-            {/* Fix: Passed currentUser prop to AIAdvisor component */}
-            <div className="flex-1 overflow-hidden"><AIAdvisor currentUser={user} /></div>
+            <div className="flex-1 overflow-hidden">
+                <AIAdvisor currentUser={user} />
+            </div>
         </div>
       </div>
 

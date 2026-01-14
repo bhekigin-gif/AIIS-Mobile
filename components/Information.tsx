@@ -1,14 +1,17 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, Phone, MapPin, Megaphone, AlertTriangle, 
   FileText, Download, ChevronRight, ArrowLeft, Upload, X, 
   Plus, Loader2, Sparkles, Smartphone, ShieldCheck, 
-  Globe, Zap, Tractor, ShoppingCart
+  Globe, Zap, Tractor, ShoppingCart, BarChart3, Target, 
+  TrendingUp, Activity, FileUp, Database, FileSearch,
+  BadgeCheck, Timer, Layers
 } from 'lucide-react';
-import { Get_System_Metadata } from '../services/adminDataService';
+import { Get_System_Metadata, Report_AIIS_Indicators, View_All_System_Users, View_Trading_Catalogue_Items } from '../services/adminDataService';
+import { db, Table } from '../services/databaseService';
+import { MarketOrder, IndicatorItem } from '../types';
 
-type InfoTab = 'about' | 'contacts' | 'announcements' | 'early_warning';
+type InfoTab = 'about' | 'contacts' | 'announcements' | 'early_warning' | 'reports';
 
 interface DocumentItem {
     id: string;
@@ -25,6 +28,15 @@ const Information: React.FC = () => {
   const [newFile, setNewFile] = useState<File | null>(null);
   const [targetCategory, setTargetCategory] = useState('');
 
+  // Report States
+  const [malaboIndicators, setMalaboIndicators] = useState<IndicatorItem[]>([]);
+  const [nationalIndicators, setNationalIndicators] = useState<IndicatorItem[]>([]);
+  const [liveEstimates, setLiveEstimates] = useState({
+      totalNodes: 0,
+      totalTradeValue: 0,
+      certifiedProducts: 0
+  });
+
   useEffect(() => {
     const loadMetadata = async () => {
         const data = await Get_System_Metadata();
@@ -32,6 +44,23 @@ const Information: React.FC = () => {
         if (data && data.announcementCategories.length > 0) {
             setTargetCategory(data.announcementCategories[0]);
         }
+
+        // Fetch Indicators & App Data for Estimates
+        const [malabo, national, users, products, orders] = await Promise.all([
+            Report_AIIS_Indicators('MALABO'),
+            Report_AIIS_Indicators('NATIONAL'),
+            View_All_System_Users(),
+            View_Trading_Catalogue_Items(),
+            db.getAll<MarketOrder>(Table.Orders)
+        ]);
+
+        setMalaboIndicators(malabo);
+        setNationalIndicators(national);
+        setLiveEstimates({
+            totalNodes: users.length,
+            totalTradeValue: orders.reduce((sum, o) => sum + (o.total || 0), 0),
+            certifiedProducts: products.filter(p => p.status === 'Active').length
+        });
     };
     loadMetadata();
   }, []);
@@ -44,6 +73,8 @@ const Information: React.FC = () => {
      ...Array(2).fill(0).map((_,i) => ({ id: `ten-${i}`, name: `Tender_Doc_2024_03.pdf`, category: 'Tenders & Vacancies', date: '2024-03-05' })),
      ...Array(3).fill(0).map((_,i) => ({ id: `wea-${i}`, name: `Rainfall_Alert_Hhohho.pdf`, category: 'Weather Alerts', date: '2024-03-12' })),
      ...Array(1).fill(0).map((_,i) => ({ id: `pes-${i}`, name: `FAW_Outbreak_Report_Lubombo.pdf`, category: 'Pest & Disease Outbreaks', date: '2024-02-25' })),
+     { id: 'stat-1', name: 'Strategic_Plan_2023_2028.pdf', category: 'Strategic Reports', date: '2023-12-10' },
+     { id: 'stat-2', name: 'National_Food_Security_Audit.xlsx', category: 'Strategic Reports', date: '2024-01-15' }
   ];
   
   const [documents, setDocuments] = useState<DocumentItem[]>(initialDocs);
@@ -52,7 +83,7 @@ const Information: React.FC = () => {
 
   const handleUpload = () => {
     if (newFile) {
-        const newDoc: DocumentItem = { id: `new-${Date.now()}`, name: newFile.name, category: targetCategory, date: new Date().toISOString().split('T')[0] };
+        const newDoc: DocumentItem = { id: `new-${Date.now()}`, name: newFile.name, category: targetCategory || 'Strategic Reports', date: new Date().toISOString().split('T')[0] };
         setDocuments([newDoc, ...documents]);
         setShowUploadModal(false);
         setNewFile(null);
@@ -60,6 +91,117 @@ const Information: React.FC = () => {
   };
 
   if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
+
+  const renderReports = () => (
+    <div className="space-y-12 animate-fade-in pb-20">
+        {/* Malabo Declaration Section */}
+        <section className="space-y-6">
+            <div className="flex items-end justify-between border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                        <Globe className="text-emerald-600" size={24}/> Malabo Declaration Tracking
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">CAADP Biennial Review Alignment • Kingdom of Eswatini</p>
+                </div>
+                <div className="px-4 py-1.5 bg-[#1B4D3E] text-[#FBBF24] rounded-lg text-[9px] font-black uppercase shadow-lg">2024 Reporting Cycle</div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {malaboIndicators.map((indicator) => {
+                    const progress = Math.min(100, (indicator.value / indicator.target) * 100);
+                    return (
+                        <div key={indicator.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all group">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-3 bg-slate-50 text-[#1B4D3E] rounded-xl group-hover:bg-[#1B4D3E] group-hover:text-white transition-all"><Target size={20}/></div>
+                                <div className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${indicator.status === 'On Track' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>{indicator.status}</div>
+                            </div>
+                            <h4 className="text-xs font-black text-slate-700 leading-tight uppercase tracking-tight h-8 line-clamp-2">{indicator.label}</h4>
+                            <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mt-1">{indicator.commitment}</p>
+                            
+                            <div className="mt-6 space-y-3">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-lg font-black text-[#1B4D3E]">{indicator.value}{indicator.unit}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Target: {indicator.target}{indicator.unit}</span>
+                                </div>
+                                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                    <div className="bg-[#FBBF24] h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+
+        {/* National Performance Estimates */}
+        <section className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-12 items-center">
+                <div className="space-y-4">
+                    <div className="p-3 bg-white/10 rounded-2xl border border-white/10 w-fit"><Activity className="text-emerald-400" size={28}/></div>
+                    <h3 className="text-2xl font-black tracking-tight uppercase">Live Node Estimates</h3>
+                    <p className="text-slate-400 text-xs font-medium leading-relaxed">Calculated from digital activity across the National Registry and Trade Hub nodes.</p>
+                </div>
+                
+                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5 hover:bg-white/10 transition-all">
+                        <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-2">Stakeholder Reach</p>
+                        <h4 className="text-3xl font-black">{liveEstimates.totalNodes}</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">Verified Hub Nodes</p>
+                    </div>
+                    <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5 hover:bg-white/10 transition-all">
+                        <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest mb-2">Market Liquidity</p>
+                        <h4 className="text-3xl font-black">E {(liveEstimates.totalTradeValue / 1000000).toFixed(1)}M</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">Processed Trade</p>
+                    </div>
+                    <div className="p-6 bg-white/5 rounded-[2rem] border border-white/5 hover:bg-white/10 transition-all">
+                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-2">Value Addition</p>
+                        <h4 className="text-3xl font-black">{liveEstimates.certifiedProducts}</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase mt-2">Traceable Batches</p>
+                    </div>
+                </div>
+            </div>
+            <Database size={400} className="absolute -bottom-40 -right-40 text-white/5 pointer-events-none rotate-12" />
+        </section>
+
+        {/* Static Strategic Reports Repository */}
+        <section className="space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                        <FileSearch className="text-indigo-600" size={24}/> Strategic Reports Archive
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Static Analysis • Policy Documents • Audits</p>
+                </div>
+                <button 
+                    onClick={() => { setTargetCategory('Strategic Reports'); setShowUploadModal(true); }}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg"
+                >
+                    <FileUp size={14}/> Archive Report
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {documents.filter(d => d.category === 'Strategic Reports').map((doc) => (
+                    <div key={doc.id} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center justify-between group hover:border-indigo-200 transition-all">
+                        <div className="flex items-center gap-5">
+                            <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl group-hover:rotate-6 transition-transform shadow-inner"><FileText size={24}/></div>
+                            <div>
+                                <h4 className="font-black text-slate-800 text-sm truncate max-w-[200px]">{doc.name}</h4>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Archived: {doc.date}</p>
+                            </div>
+                        </div>
+                        <a href={getFileUrl(doc.name)} target="_blank" rel="noopener noreferrer" className="p-3 bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all">
+                            <Download size={20}/>
+                        </a>
+                    </div>
+                ))}
+                {documents.filter(d => d.category === 'Strategic Reports').length === 0 && (
+                    <div className="col-span-2 py-10 text-center opacity-20"><FileSearch size={48} className="mx-auto mb-2"/><p className="text-xs font-black uppercase">No strategic reports archived</p></div>
+                )}
+            </div>
+        </section>
+    </div>
+  );
 
   const renderAbout = () => (
     <div className="space-y-4 sm:space-y-8 animate-fade-in">
@@ -212,7 +354,7 @@ const Information: React.FC = () => {
         <div>
             <h2 className="text-2xl sm:text-4xl font-black text-[#1B4D3E] tracking-tight">Information Centre</h2>
             <div className="flex gap-4 sm:gap-8 mt-6 overflow-x-auto no-scrollbar pb-2 border-b border-slate-100">
-                {(['about', 'contacts', 'announcements', 'early_warning'] as const).map((tab) => (
+                {(['about', 'contacts', 'announcements', 'early_warning', 'reports'] as const).map((tab) => (
                     <button key={tab} onClick={() => { setActiveTab(tab); setSelectedFolder(null); }} className={`pb-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${activeTab === tab ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-400'}`}>
                         {tab.replace('_', ' ')}
                     </button>
@@ -228,6 +370,7 @@ const Information: React.FC = () => {
         {activeTab === 'about' && renderAbout()}
         {activeTab === 'contacts' && renderContacts()}
         {activeTab === 'announcements' && renderAnnouncements()}
+        {activeTab === 'reports' && renderReports()}
         {activeTab === 'early_warning' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
             {warningCategories.map((c: string) => (
@@ -254,7 +397,8 @@ const Information: React.FC = () => {
                         <div className="space-y-1.5">
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Classification</label>
                             <select value={targetCategory} onChange={(e) => setTargetCategory(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-sm outline-none">
-                                {systemMetadata?.announcementCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                {announcementCategories.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                <option value="Strategic Reports">Strategic Reports</option>
                             </select>
                         </div>
                         <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center relative group">

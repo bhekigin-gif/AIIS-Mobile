@@ -7,9 +7,11 @@ import {
   Activity, TrendingUp, AlertTriangle, ChevronRight, 
   Bot, Loader2, Cloud, CloudRain, CloudLightning, Sun, MapPin,
   Sprout, Landmark, Info, Sparkles, Send, X, MessageSquareText,
-  Headset, PhoneCall
+  Headset, PhoneCall, Zap, ShieldAlert, Radio, Megaphone,
+  BellRing, Bug
 } from 'lucide-react';
 import { getDashboardAnalysis, getWeatherAlert, chatWithAgriBot, getWeatherForecast } from '../services/geminiService';
+import { Get_System_Metadata } from '../services/adminDataService';
 import { ChatMessage, UserProfile, UserRole } from '../types';
 
 interface DashboardProps {
@@ -45,6 +47,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
   ]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [earlyWarnings, setEarlyWarnings] = useState<any[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const isExtension = user?.role === UserRole.Extension;
@@ -115,6 +118,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
       const analysis = await getDashboardAnalysis(filteredProduction, priceTrends, weather);
       setAiAnalysis(analysis);
       setIsAnalyzing(false);
+
+      // Load Early Warnings
+      const meta = await Get_System_Metadata();
+      // For dashboard we show a refined set of recent critical warnings
+      const warnings = [
+        { id: 'EW-1', type: 'Weather', title: 'Severe Thunderstorm Warning', region: 'Hhohho, Manzini', severity: 'Critical', date: 'Today', icon: <CloudLightning className="text-rose-500" size={16}/> },
+        { id: 'EW-2', type: 'Pest', title: 'FAW Outbreak Confirmed', region: 'Lubombo', severity: 'High', date: '2 days ago', icon: <Bug className="text-amber-600" size={16}/> },
+        { id: 'EW-3', type: 'Heat', title: 'Heatwave Advisory', region: 'Shiselweni', severity: 'Moderate', date: '3 days ago', icon: <Sun className="text-orange-500" size={16}/> }
+      ];
+      setEarlyWarnings(warnings);
     };
     handleGenerateInsight();
   }, [user, isRegionalScope]);
@@ -131,7 +144,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
   };
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in relative">
+    <div className="flex flex-col gap-4 animate-fade-in relative pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-[#1B4D3E] tracking-tight">
@@ -189,19 +202,51 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onRegister, onOpenAdvisor }
         </div>
       </div>
 
-      <div className="bg-[#1B4D3E] p-5 sm:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden group">
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5 sm:gap-8">
-          <div className="p-4 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md group-hover:rotate-12 transition-transform"><Sparkles className="text-[#FBBF24]" size={24}/></div>
-          <div className="flex-1">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-300 mb-2">AI Synthesis</h3>
-            {isAnalyzing ? (
-              <div className="flex items-center gap-3 py-1"><Loader2 size={16} className="animate-spin text-green-300"/><span className="text-[11px] font-bold text-green-100/60 uppercase">Processing Feed...</span></div>
-            ) : (
-              <div className="text-xs sm:text-sm font-medium leading-relaxed prose prose-invert line-clamp-3 opacity-90" dangerouslySetInnerHTML={{ __html: aiAnalysis }} />
-            )}
-          </div>
+      {/* National Early Warning Feed Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-2">
+        <div className="lg:col-span-1 bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Radio className="text-rose-500 animate-pulse" size={18}/>
+                    <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Early Warning Feed</h3>
+                </div>
+                <button onClick={() => {}} className="text-[8px] font-black text-indigo-600 uppercase hover:underline">View Map</button>
+            </div>
+            
+            <div className="space-y-2 overflow-y-auto max-h-[160px] no-scrollbar">
+                {earlyWarnings.map(warning => (
+                    <div key={warning.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all flex items-start gap-3 group">
+                        <div className="mt-1 p-1.5 bg-white rounded-lg shadow-sm">{warning.icon}</div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                                <h4 className="text-[10px] font-black text-slate-800 truncate leading-tight">{warning.title}</h4>
+                                <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-full ${
+                                    warning.severity === 'Critical' ? 'bg-rose-100 text-rose-700' :
+                                    warning.severity === 'High' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                }`}>{warning.severity}</span>
+                            </div>
+                            <p className="text-[8px] text-slate-400 font-bold uppercase mt-1 tracking-tighter">{warning.region} • {warning.date}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <button className="w-full py-2 bg-[#1B4D3E] text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-900 transition-all">View All Alerts</button>
         </div>
-        <Activity size={200} className="absolute -bottom-20 -right-20 text-white/5 pointer-events-none rotate-12" />
+
+        <div className="lg:col-span-2 bg-[#1B4D3E] p-6 sm:p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+            <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-5 sm:gap-8 h-full">
+            <div className="p-4 bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md group-hover:rotate-12 transition-transform shadow-2xl"><Sparkles className="text-[#FBBF24]" size={24}/></div>
+            <div className="flex-1">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-green-300 mb-2">AI Synthesis</h3>
+                {isAnalyzing ? (
+                <div className="flex items-center gap-3 py-1"><Loader2 size={16} className="animate-spin text-green-300"/><span className="text-[11px] font-bold text-green-100/60 uppercase">Processing Feed...</span></div>
+                ) : (
+                <div className="text-xs sm:text-sm font-medium leading-relaxed prose prose-invert line-clamp-3 opacity-90" dangerouslySetInnerHTML={{ __html: aiAnalysis }} />
+                )}
+            </div>
+            </div>
+            <Activity size={200} className="absolute -bottom-20 -right-20 text-white/5 pointer-events-none rotate-12" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

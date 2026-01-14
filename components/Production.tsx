@@ -57,13 +57,6 @@ import { db, Table } from '../services/databaseService';
 const GOOGLE_MAPS_API_KEY = "AIzaSyDFuDLViwxFLH0iO-zFgbJkks20w_DiiJU";
 const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
 
-interface SelectedCatalogueItem {
-    item: CatalogueItem;
-    quantity: number;
-    initialValue: number;
-    lifespanHours: number;
-}
-
 interface ActivityLog {
     id: string;
     timestamp: string;
@@ -74,6 +67,13 @@ interface ActivityLog {
     quantityUsed: number;
     durationHours: number;
     cost: number;
+}
+
+interface SelectedCatalogueItem {
+    item: CatalogueItem;
+    quantity: number;
+    initialValue: number;
+    lifespanHours: number;
 }
 
 interface ProductionProps {
@@ -574,7 +574,13 @@ const Production: React.FC<ProductionProps> = ({
 
     await db.update(Table.Enterprises, selectedEntId, ent);
     setShowHarvestModal(false);
-    setHarvestForm({ name: '', category: 'Crops', quantity: 0, unit: 'kg', price: 0, description: '', image: '', startDate: new Date().toISOString().split('T')[0], duration: 1, traceId: '', manufacturer: '', subCategory: '', tradeName: '', division: '', tinkhundla: '' });
+    // Partial harvesting reset: Keep fields for potential next quick batch but reset quantity/trace
+    setHarvestForm({ 
+        ...harvestForm,
+        quantity: 0,
+        traceId: '',
+        image: ''
+    });
     await loadAllData(selectedEntId); 
   };
 
@@ -639,9 +645,16 @@ const Production: React.FC<ProductionProps> = ({
     const totalCost = ops.reduce((s:number, o:any) => s + (o.accumulatedCost || 0), 0);
     const totalResourceValue = resources.reduce((s:number, r:any) => s + (r.initialValue || 0), 0);
 
+    // Yield Calculation Logic
+    const allHarvestLogs = ops.flatMap((o: any) => (o.logs || []).filter((l: any) => l.activity === 'Harvest Log'));
+    const totalHarvestedAmount = allHarvestLogs.reduce((sum: number, log: any) => sum + (parseFloat(log.quantityUsed) || 0), 0);
+    const totalArea = selectedEnterprise.units?.reduce((sum: number, u: any) => sum + (parseFloat(u.area) || 0), 0) || 0;
+    const nodeYield = totalArea > 0 ? (totalHarvestedAmount / totalArea) : 0;
+    const yieldUnit = allHarvestLogs.length > 0 ? (allHarvestLogs[0].resourceName?.split(' ').pop() || 'Units') : 'Units';
+
     return (
         <div className="space-y-6 animate-fade-in p-6 overflow-y-auto h-full no-scrollbar bg-white/50">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-[#1B4D3E] p-6 rounded-[2rem] shadow-xl flex flex-col justify-between h-36 group relative overflow-hidden">
                     <div className="relative z-10">
                         <p className="text-[10px] font-black text-green-300 uppercase tracking-widest">Operational Sunk Cost</p>
@@ -653,6 +666,14 @@ const Production: React.FC<ProductionProps> = ({
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inventory Asset Value</p>
                     <h3 className="text-2xl font-black text-[#1B4D3E] mt-2">E {totalResourceValue.toLocaleString()}</h3>
                     <div className="flex items-center gap-2 text-[9px] font-black text-[#FBBF24] uppercase mt-2"><TrendingUp size={12}/> Vetted Registry Active</div>
+                </div>
+                <div className="bg-white p-6 rounded-[2rem] border border-[#FBBF24]/20 shadow-sm flex flex-col justify-between h-36 hover:border-[#FBBF24] transition-all">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Yield Performance</p>
+                    <h3 className="text-2xl font-black text-[#1B4D3E] mt-2">{nodeYield.toFixed(2)} <span className="text-[10px] text-slate-400">/ Ha</span></h3>
+                    <div className="flex items-center justify-between mt-2">
+                        <p className="text-[8px] font-black text-slate-300 uppercase">Total: {totalHarvestedAmount.toLocaleString()}</p>
+                        <Activity size={12} className="text-indigo-500 animate-pulse"/>
+                    </div>
                 </div>
                 <div className="bg-white p-6 rounded-[2rem] border border-[#FBBF24]/20 shadow-sm flex flex-col justify-between h-36 hover:border-[#FBBF24] transition-all">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Units</p>
@@ -785,7 +806,7 @@ const Production: React.FC<ProductionProps> = ({
             <div className="flex-1 overflow-auto no-scrollbar relative p-4">
                 <div className="min-w-fit inline-block bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                     <div className="flex sticky top-0 z-30 bg-slate-900 text-white"><div className="w-60 border-r border-slate-800 p-4 shrink-0 flex items-center"><span className="text-[9px] font-black uppercase tracking-widest text-[#FBBF24]">Activity Hub</span></div><div className="flex">{timelineDays.map((date, i) => (<div key={i} className={`w-[100px] border-r border-slate-800 p-2 text-center shrink-0 flex flex-col items-center justify-center ${date.toDateString() === now.toDateString() ? 'bg-[#FBBF24]/10' : ''}`}><span className="text-[8px] font-black uppercase text-slate-400">{date.toLocaleDateString('en-GB', { weekday: 'short' })}</span><span className="text-xs font-black">{date.getDate()}</span><span className="text-[7px] font-bold uppercase opacity-40">{date.toLocaleDateString('en-GB', { month: 'short' })}</span></div>))}</div></div>
-                    <div className="relative"><div className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20 pointer-events-none" style={{ left: `calc(240px + 5 * 100px + ${((now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400) * 100}px)` }}><div className="absolute top-0 -translate-x-1/2 px-2 py-1 bg-rose-500 text-white text-[8px] font-black uppercase rounded shadow-lg">Today</div></div>{ops.map((op: any) => { const opStart = new Date(op.startDateTime); const diffInDays = (opStart.getTime() - startDate.getTime()) / (1000 * 3600 * 24); let duration = op.endDateTime ? (new Date(op.endDateTime).getTime() - opStart.getTime()) / (1000 * 3600 * 24) : 1; duration = Math.max(0.5, duration); return (<div key={op.id} className="flex border-b border-slate-50 group hover:bg-slate-50/50 transition-colors"><div className="w-60 border-r border-slate-100 p-4 shrink-0 flex flex-col justify-center"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${op.status === 'Completed' ? 'bg-emerald-500' : 'bg-[#1B4D3E] animate-pulse'}`}/><p className="text-[11px] font-black text-slate-700 truncate">{op.activity}</p></div><p className="text-[8px] font-bold text-slate-400 uppercase mt-1 flex items-center gap-1"><MapPin size={10} className="text-[#FBBF24]"/> {op.field}</p></div><div className="flex relative items-center h-20">{timelineDays.map((_, i) => (<div key={i} className="w-[100px] h-full border-r border-slate-50/50 shrink-0"/>))}<div className={`absolute h-10 rounded-2xl flex items-center px-4 shadow-lg border-2 transition-all hover:scale-[1.02] cursor-pointer group/bar ${op.status === 'Completed' ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-[#1B4D3E] border-emerald-900/50 text-[#FBBF24]'}`} style={{ left: `${diffInDays * 100}px`, width: `${duration * 100}px` }} onClick={() => { setSelectedOp(op); setActiveTab('OPERATIONS'); }}><span className="text-[9px] font-black uppercase truncate tracking-tight">{op.activity}</span><ChevronRightIcon size={12} className="ml-auto opacity-0 group-hover/bar:opacity-100 transition-opacity" /></div></div></div>);})}</div>
+                    <div className="relative"><div className="absolute top-0 bottom-0 w-0.5 bg-rose-500 z-20 pointer-events-none" style={{ left: `calc(240px + 5 * 100px + ${((now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()) / 86400) * 100}px)` }}><div className="absolute top-0 -translate-x-1/2 px-2 py-1 bg-rose-500 text-white text-[8px] font-black uppercase rounded shadow-lg">Today</div></div>{ops.map((op: any) => { const opStart = new Date(op.startDateTime); const diffInDays = (opStart.getTime() - startDate.getTime()) / (1000 * 3600 * 24); let duration = op.endDateTime ? (new Date(op.endDateTime).getTime() - opStart.getTime()) / (1000 * 3600 * 24) : 1; duration = Math.max(0.5, duration); return (<div key={op.id} className="flex border-b border-slate-50 group hover:bg-slate-50/50 transition-colors"><div className="w-60 border-r border-slate-100 p-4 shrink-0 flex flex-col justify-center"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${op.status === 'Completed' ? 'bg-emerald-500' : 'bg-[#1B4D3E] animate-pulse'}`}/><p className="text-11px font-black text-slate-700 truncate">{op.activity}</p></div><p className="text-[8px] font-bold text-slate-400 uppercase mt-1 flex items-center gap-1"><MapPin size={10} className="text-[#FBBF24]"/> {op.field}</p></div><div className="flex relative items-center h-20">{timelineDays.map((_, i) => (<div key={i} className="w-[100px] h-full border-r border-slate-50/50 shrink-0"/>))}<div className={`absolute h-10 rounded-2xl flex items-center px-4 shadow-lg border-2 transition-all hover:scale-[1.02] cursor-pointer group/bar ${op.status === 'Completed' ? 'bg-emerald-500 border-emerald-400 text-white' : 'bg-[#1B4D3E] border-emerald-900/50 text-[#FBBF24]'}`} style={{ left: `${diffInDays * 100}px`, width: `${duration * 100}px` }} onClick={() => { setSelectedOp(op); setActiveTab('OPERATIONS'); }}><span className="text-[9px] font-black uppercase truncate tracking-tight">{op.activity}</span><ChevronRightIcon size={12} className="ml-auto opacity-0 group-hover/bar:opacity-100 transition-opacity" /></div></div></div>);})}</div>
                 </div>
             </div>
         </div>
@@ -841,7 +862,7 @@ const Production: React.FC<ProductionProps> = ({
                                 <div className="p-8 cursor-pointer" onClick={() => setSelectedOp(selectedOp?.id === op.id ? null : op)}>
                                     <div className="flex justify-between items-start flex-wrap gap-4">
                                         <div className="space-y-3">
-                                            <div className="flex items-center gap-4"><span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${op.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-[#1B4D3E] text-[#FBBF24] border border-white/10'}`}>{op.status}</span><h5 className="text-xl font-black text-[#1B4D3E] leading-none">{op.activity}</h5></div>
+                                            <div className="flex items-center gap-4"><span className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${op.status === 'Completed' ? 'bg-emerald-50 text-emerald-700' : 'bg-[#1B4D3E] text-[#FBBF24] border border-white/10'}`}>{op.status}</span><h5 className="text-xl font-black text-[#1B4D3E] leading-none">{op.activity}</h5></div>
                                             <div className="flex items-center gap-6 text-slate-400"><div className="flex items-center gap-2 font-black uppercase text-[10px]"><MapPin size={14} className="text-[#FBBF24]"/><span>{op.field} Unit</span></div><div className="flex items-center gap-2 font-black uppercase text-[10px]"><CalendarIcon size={14} className="text-[#1B4D3E]"/><span>{new Date(op.startDateTime).toLocaleDateString()}</span></div></div>
                                         </div>
                                         <div className="text-right"><p className="text-2xl font-black text-[#1B4D3E] tracking-tight">E {op.accumulatedCost?.toLocaleString() || 0}</p><p className="text-[9px] font-black text-[#FBBF24] uppercase tracking-[0.4em] mt-2">Cycle Cost</p></div>
@@ -861,7 +882,9 @@ const Production: React.FC<ProductionProps> = ({
                                                 const unitObj = selectedEnterprise?.units?.find((u: any) => u.name === unitName);
                                                 const unitId = unitObj?.id?.split('-').pop() || 'UNIT';
                                                 const operationId = selectedOp?.id?.split('-').pop() || 'OP';
-                                                setHarvestForm({...harvestForm, traceId: `${countryCode}-${enterpriseId}-${unitId}-${operationId}`, manufacturer: `${user?.firstName} ${user?.lastName}`});
+                                                // Seq: Sequential identifier for multiple partial harvests from same op
+                                                const seq = Date.now().toString().slice(-4);
+                                                setHarvestForm({...harvestForm, traceId: `${countryCode}-${enterpriseId}-${unitId}-${operationId}-${seq}`, manufacturer: `${user?.firstName} ${user?.lastName}`});
                                                 setShowHarvestModal(true); 
                                             }} disabled={op.status === 'Completed'} className="py-4 bg-[#FBBF24] text-[#1B4D3E] rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-yellow-400 disabled:opacity-30 transition-all group/btn"><Sprout size={20} className="group-hover/btn:scale-125 transition-transform"/> Harvest Produce</button>
                                             <button onClick={() => handleCompleteOp(op.id)} disabled={op.status === 'Completed'} className="py-4 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 hover:bg-emerald-700 disabled:opacity-30 transition-all group/btn"><CheckCircle2 size={20}/> Complete Cycle</button>

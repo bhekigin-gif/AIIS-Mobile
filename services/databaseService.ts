@@ -1,12 +1,10 @@
-
 /**
- * AIIS DATABASE SERVICE v2.0
- * Migrated from localStorage to IndexedDB to support large datasets (Bulk Imports).
- * Standard storage limit is now ~80% of your disk space instead of 5MB.
+ * AIIS DATABASE SERVICE v3.0
+ * Robust IndexedDB implementation with idempotent inserts.
  */
 
-const DB_NAME = 'AIIS_National_Registry';
-const DB_VERSION = 2;
+const DB_NAME = 'AIIS_National_Registry_V3';
+const DB_VERSION = 5;
 
 export enum Table {
     Users = 'users',
@@ -28,6 +26,7 @@ class DatabaseService {
 
             request.onupgradeneeded = (event: any) => {
                 const db = event.target.result;
+                // Ensure all tables exist
                 Object.values(Table).forEach(tableName => {
                     if (!db.objectStoreNames.contains(tableName)) {
                         db.createObjectStore(tableName, { keyPath: 'id' });
@@ -47,7 +46,6 @@ class DatabaseService {
         });
     }
 
-    // Retrieve all records for a given table
     async getAll<T>(table: Table): Promise<T[]> {
         const db = await this.getDb();
         return new Promise((resolve, reject) => {
@@ -60,7 +58,6 @@ class DatabaseService {
         });
     }
 
-    // Retrieve a single record by its ID
     async getById<T extends { id?: string | number }>(table: Table, id: string | number): Promise<T | undefined> {
         const db = await this.getDb();
         return new Promise((resolve, reject) => {
@@ -73,7 +70,6 @@ class DatabaseService {
         });
     }
 
-    // Overwrite all records in a table (Used for initialization)
     async saveAll<T extends { id?: string | number }>(table: Table, items: T[]): Promise<void> {
         const db = await this.getDb();
         return new Promise((resolve, reject) => {
@@ -83,7 +79,7 @@ class DatabaseService {
             store.clear();
             items.forEach(item => {
                 if (!item.id) (item as any).id = `ID-${Math.random().toString(36).substr(2, 9)}`;
-                store.add(item);
+                store.put(item);
             });
 
             transaction.oncomplete = () => resolve();
@@ -91,7 +87,9 @@ class DatabaseService {
         });
     }
 
-    // Insert a new record into a table
+    /**
+     * Idempotent insert: uses put() instead of add() to prevent "Key already exists" errors.
+     */
     async insert<T extends { id?: string | number }>(table: Table, item: T): Promise<T> {
         const db = await this.getDb();
         if (!item.id) item.id = `ID-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -99,14 +97,14 @@ class DatabaseService {
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(table, 'readwrite');
             const store = transaction.objectStore(table);
-            const request = store.add(item);
+            // Use put() to avoid "Key already exists" error
+            const request = store.put(item);
 
             request.onsuccess = () => resolve(item);
             request.onerror = () => reject(request.error);
         });
     }
 
-    // Efficiently insert multiple records in one transaction
     async bulkInsert<T extends { id?: string | number }>(table: Table, newItems: T[]): Promise<void> {
         const db = await this.getDb();
         return new Promise((resolve, reject) => {
@@ -115,7 +113,7 @@ class DatabaseService {
 
             newItems.forEach(item => {
                 if (!item.id) item.id = `ID-${Math.random().toString(36).substr(2, 9)}`;
-                store.put(item); // put handles add or update
+                store.put(item);
             });
 
             transaction.oncomplete = () => resolve();
@@ -123,7 +121,6 @@ class DatabaseService {
         });
     }
 
-    // Update an existing record by ID
     async update<T extends { id?: string | number }>(table: Table, id: string | number, updates: Partial<T>): Promise<boolean> {
         const item = await this.getById<T>(table, id);
         if (!item) return false;
@@ -141,7 +138,6 @@ class DatabaseService {
         });
     }
 
-    // Delete a record by ID
     async delete(table: Table, id: string | number): Promise<boolean> {
         const db = await this.getDb();
         return new Promise((resolve, reject) => {
