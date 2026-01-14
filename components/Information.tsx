@@ -5,7 +5,7 @@ import {
   Plus, Loader2, Sparkles, Smartphone, ShieldCheck, 
   Globe, Zap, Tractor, ShoppingCart, BarChart3, Target, 
   TrendingUp, Activity, FileUp, Database, FileSearch,
-  BadgeCheck, Timer, Layers
+  BadgeCheck, Timer, Layers, Droplets, Leaf, BatteryCharging
 } from 'lucide-react';
 import { Get_System_Metadata, Report_AIIS_Indicators, View_All_System_Users, View_Trading_Catalogue_Items } from '../services/adminDataService';
 import { db, Table } from '../services/databaseService';
@@ -130,6 +130,89 @@ const Information: React.FC = () => {
                         </div>
                     );
                 })}
+            </div>
+        </section>
+
+        {/* Resource Efficiency & Input Indicators (Climate Sensitive) */}
+        <section className="space-y-6">
+            <div className="flex items-end justify-between border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                        <Leaf className="text-emerald-500" size={24}/> Resource Efficiency & Input Indicators
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Climate-Sensitive Resource Optimization • National Tracking</p>
+                </div>
+                <div className="px-4 py-1.5 bg-emerald-900 text-emerald-100 rounded-lg text-[9px] font-black uppercase shadow-lg">Environmental Oversight</div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Nitrogen Use Efficiency (NUE) */}
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group">
+                    <div className="relative z-10 space-y-4">
+                        <div className="flex justify-between items-start">
+                            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:bg-emerald-600 group-hover:text-white transition-all"><Zap size={24}/></div>
+                            <div className="flex flex-col items-end gap-2">
+                                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-[8px] font-black uppercase">Efficiency: 68%</span>
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 text-amber-600 rounded-md border border-amber-100 animate-pulse">
+                                    <AlertTriangle size={10}/>
+                                    <span className="text-[7px] font-black uppercase">N₂O Waste Alert</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="font-black text-slate-800 uppercase tracking-tight">Nitrogen Use Efficiency (NUE)</h4>
+                            <p className="text-[10px] text-slate-400 font-medium leading-relaxed mt-2">Ratio between nitrogen removed with the crop vs nitrogen applied. Current trends indicate potential N₂O waste levels in regional catchments.</p>
+                        </div>
+                        <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
+                            <div className="text-[9px] font-black uppercase text-slate-300">Target Benchmark: 75%</div>
+                            <TrendingUp size={16} className="text-emerald-500"/>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Water Use Efficiency (WUE) */}
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group">
+                    <div className="relative z-10 space-y-4">
+                        <div className="flex justify-between items-start">
+                            <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-all"><Droplets size={24}/></div>
+                            <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-[8px] font-black uppercase">On Track</span>
+                        </div>
+                        <div>
+                            <h4 className="font-black text-slate-800 uppercase tracking-tight">Water Use Efficiency (WUE)</h4>
+                            <p className="text-[10px] text-slate-400 font-medium leading-relaxed mt-2">Volume of water used per unit of agricultural output. Monitored across Hhohho and Lubombo irrigation clusters.</p>
+                        </div>
+                        <div className="pt-4 border-t border-slate-50 space-y-3">
+                            <div className="flex justify-between text-[10px] font-black text-[#1B4D3E]">
+                                <span>1.2 m³/kg</span>
+                                <span>Aggregate</span>
+                            </div>
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-blue-400 h-full w-[85%] rounded-full"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Energy Balance */}
+                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group">
+                    <div className="relative z-10 space-y-4">
+                        <div className="flex justify-between items-start">
+                            <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl group-hover:bg-amber-600 group-hover:text-white transition-all"><BatteryCharging size={24}/></div>
+                            <span className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-[8px] font-black uppercase">Stable</span>
+                        </div>
+                        <div>
+                            <h4 className="font-black text-slate-800 uppercase tracking-tight">Energy Balance</h4>
+                            <p className="text-[10px] text-slate-400 font-medium leading-relaxed mt-2">Ratio of energy produced (food/fuel) to energy consumed (fuel for tractors, fertilizer production, logistics).</p>
+                        </div>
+                        <div className="pt-4 border-t border-slate-50 flex justify-between items-end">
+                            <div>
+                                <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Net Ratio</p>
+                                <p className="text-xl font-black text-amber-600">2.4 : 1</p>
+                            </div>
+                            <TrendingUp size={16} className="text-emerald-500 mb-1"/>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
