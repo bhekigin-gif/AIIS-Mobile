@@ -10,7 +10,7 @@ import {
   Landmark, Receipt, FileSearch, Target, Wallet, ShoppingCart, FileUp, Table, Loader2,
   Fingerprint, Activity, Zap, ChevronDown, Globe, TruckIcon, Minus, CheckCircle2, ClipboardCheck,
   SearchX, BadgeCheck, ShieldAlert, Check as CheckIcon,
-  Maximize2, Navigation, Ruler, Route, Lock, UserPlus
+  Maximize2, Navigation, Ruler, Route, Lock, UserPlus, Star
 } from 'lucide-react';
 import { SalesProduct, Region, MarketCartItem, MarketOrder, UserProfile, OrderStatus, UserRole, CatalogueItem, ResourceType, ActorType } from '../types';
 import { Get_Product_By_ID, Get_User_By_ID, View_Master_Catalogue, Add_To_Master_Catalogue, Get_System_Metadata, updateProductStatus } from '../services/adminDataService';
@@ -42,8 +42,13 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
   const [aiTraceReport, setAiTraceReport] = useState<string>('');
   const [systemMetadata, setSystemMetadata] = useState<any>(null);
 
-  const [editingDraft, setEditingDraft] = useState<SalesProduct | null>(null);
-  const [isPublishing, setIsPublishing] = useState(false);
+  // Vetting Certificate State
+  const [vettingCertificates, setVettingCertificates] = useState<Record<string, string>>({});
+
+  // Feedback State
+  const [showRatingModal, setShowRatingModal] = useState<string | null>(null); // OrderID
+  const [ratingValue, setRatingValue] = useState(5);
+  const [feedbackText, setFeedbackText] = useState('');
 
   // Commerce States
   const [selectedTransport, setSelectedTransport] = useState<any>(null);
@@ -250,12 +255,19 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const updates: Partial<MarketOrder> = { status: newStatus };
+    let finalStatus = newStatus;
+
+    // Logic: Free Product Auto-Skip Payment
+    if (newStatus === 'Payment' && order.total === 0) {
+        finalStatus = 'Confirmation'; // Skip PoP requirement
+    }
+
+    const updates: Partial<MarketOrder> = { status: finalStatus };
     if (evidence) { updates.popImage = evidence.image; updates.popRef = evidence.ref; }
 
     await db.update(DbTable.Orders, orderId, updates);
     
-    if (newStatus === 'Received') {
+    if (finalStatus === 'Received') {
         const enterprises = await db.getAll<any>(DbTable.Enterprises);
         
         const sellerEnt = enterprises.find(e => e.ownerId === order.sellerId || e.organizationId === order.sellerId);
@@ -289,8 +301,20 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
 
   const handleVerifyProduct = async (productId: string, approve: boolean) => {
     const status = approve ? 'Active' : 'Rejected';
-    await updateProductStatus(productId, status);
-    setProducts(prev => prev.map(p => p.id === productId ? { ...p, status: status as any } : p));
+    const certUrl = vettingCertificates[productId] || '';
+    
+    if (approve && certUrl) {
+       await db.update<SalesProduct>(DbTable.Products, productId, { status: 'Active' as any, certificateUrl: certUrl });
+    } else {
+       await updateProductStatus(productId, status);
+    }
+    
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, status: status as any, certificateUrl: approve ? certUrl : undefined } : p));
+    setVettingCertificates(prev => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+    });
   };
 
   const handleTraceSearch = async () => {
@@ -303,6 +327,15 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
       setAiTraceReport(await getTraceabilityReport(product.id, product, seller));
     } else alert("Chronology ID not found.");
     setIsSearchingTrace(false);
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!showRatingModal) return;
+    await db.update<MarketOrder>(DbTable.Orders, showRatingModal, { rating: ratingValue, feedback: feedbackText });
+    setGlobalOrders(prev => prev.map(o => o.id === showRatingModal ? { ...o, rating: ratingValue, feedback: feedbackText } : o));
+    setShowRatingModal(null);
+    setRatingValue(5);
+    setFeedbackText('');
   };
 
   const renderOrderActions = (order: MarketOrder) => {
@@ -326,7 +359,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                 <button onClick={() => handleStatusUpdate(order.id, 'Dispatched')} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-purple-700 font-black">Dispatch Logistics Node</button>
             )}
             {order.status === 'Dispatched' && isBuyer && (
-                <button onClick={() => handleStatusUpdate(order.id, 'Received')} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-700 font-black">Close Transaction Node</button>
+                <button onClick={() => { handleStatusUpdate(order.id, 'Received'); setShowRatingModal(order.id); }} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-700 font-black">Confirm Delivery & Rate</button>
             )}
         </div>
     );
@@ -359,7 +392,6 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
         <div className="flex-1 overflow-y-auto no-scrollbar pb-20">
             {viewStep === 'browse' && (
                 <div className="space-y-6">
-                    {/* Guest Call to Action Banner */}
                     {user?.role === UserRole.Guest && (
                         <div className="mb-8 p-8 bg-amber-50 border-2 border-amber-100 rounded-[3rem] flex flex-col md:flex-row items-center justify-between gap-8 animate-fade-in shadow-xl relative overflow-hidden">
                             <div className="flex items-center gap-6 relative z-10">
@@ -414,6 +446,11 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                     <div className="h-44 bg-slate-200 overflow-hidden shrink-0 relative">
                                         <img src={product.image || PLACE_HOLDER_IMAGE} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                         <div className="absolute top-4 left-4 px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-[8px] font-black uppercase text-[#1B4D3E] shadow-sm border border-white/50">{product.region}</div>
+                                        {product.certificateUrl && (
+                                            <div className="absolute top-4 right-4 p-2 bg-emerald-600 text-white rounded-xl shadow-lg border border-white/20">
+                                                <BadgeCheck size={16}/>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="p-6 flex-1 flex flex-col justify-between">
                                         <div>
@@ -427,7 +464,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                         <div className="flex justify-between items-end mt-6 pt-4 border-t border-slate-50">
                                             <div>
                                                 <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Pricing</p>
-                                                <p className="text-xl font-black text-[#1B4D3E]">E {product.price} <span className="text-[10px] text-slate-400">/ {product.unit}</span></p>
+                                                <p className="text-xl font-black text-[#1B4D3E]">{product.price === 0 ? 'FREE' : `E ${product.price}`} <span className="text-[10px] text-slate-400">/ {product.unit}</span></p>
                                             </div>
                                             
                                             {user?.role !== UserRole.Guest ? (
@@ -501,6 +538,41 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                             </div>
                                         </div>
                                         <p className="text-sm text-slate-500 font-medium leading-relaxed">{product.description}</p>
+                                        
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><FileText size={12}/> Attach Certification (Optional)</p>
+                                            <div className="flex items-center gap-4">
+                                                <label className="flex-1 cursor-pointer">
+                                                    <div className="px-4 py-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between group/upload hover:border-indigo-400 transition-all">
+                                                        <span className="text-[10px] font-bold text-slate-400 truncate">
+                                                            {vettingCertificates[product.id] ? 'Certificate Node Attached' : 'Select PDF/Image Document'}
+                                                        </span>
+                                                        <Upload size={14} className="text-slate-300 group-hover/upload:text-indigo-500 transition-colors"/>
+                                                    </div>
+                                                    <input 
+                                                        type="file" 
+                                                        className="hidden" 
+                                                        accept=".pdf,image/*" 
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => setVettingCertificates(prev => ({ ...prev, [product.id]: reader.result as string }));
+                                                                reader.readAsDataURL(file);
+                                                            }
+                                                        }}
+                                                    />
+                                                </label>
+                                                {vettingCertificates[product.id] && (
+                                                    <button onClick={() => setVettingCertificates(prev => {
+                                                        const next = { ...prev };
+                                                        delete next[product.id];
+                                                        return next;
+                                                    })} className="p-3 text-rose-500 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={16}/></button>
+                                                )}
+                                            </div>
+                                        </div>
+
                                         <div className="flex items-center gap-6 pt-4 border-t border-slate-50">
                                             <div><p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Target Price</p><p className="text-lg font-black text-indigo-900">E {product.price}</p></div>
                                             <div><p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Yield Node</p><p className="text-lg font-black text-indigo-900">{product.quantity} {product.unit}</p></div>
@@ -581,7 +653,6 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                         </div>
 
                         <div className="space-y-6">
-                            {/* Route Visualization Map */}
                             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col h-[500px]">
                                 <div className="p-5 border-b border-slate-100 bg-[#1B4D3E] text-white flex justify-between items-center shrink-0">
                                     <div className="flex items-center gap-3">
@@ -602,7 +673,6 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                 </div>
                             </div>
 
-                            {/* Transport Logistics Selector */}
                             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl overflow-hidden flex flex-col">
                                 <div className="p-6 border-b border-slate-100 flex items-center gap-3">
                                     <TruckIcon size={24} className="text-[#1B4D3E]"/>
@@ -670,7 +740,20 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                         </div>
                                     </div>
 
-                                    {/* PoP Audit Section for Sellers and Buyers */}
+                                    {order.rating && (
+                                        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex gap-0.5">
+                                                    {[1,2,3,4,5].map(s => (
+                                                        <Star key={s} size={14} className={s <= (order.rating || 0) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'} />
+                                                    ))}
+                                                </div>
+                                                <p className="text-xs font-bold text-emerald-800">"{order.feedback || 'Quality Service Confirmed'}"</p>
+                                            </div>
+                                            <BadgeCheck size={20} className="text-emerald-500"/>
+                                        </div>
+                                    )}
+
                                     {order.popRef && (
                                         <div className="bg-slate-50 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6 border border-slate-100 animate-slide-up">
                                             <div className="flex-1 space-y-2">
@@ -731,13 +814,12 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                 <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 bg-slate-100"><img src={p.image || PLACE_HOLDER_IMAGE} className="w-full h-full object-cover" /></div>
                                 <div className="flex-1 space-y-2">
                                     <div className="flex justify-between items-start">
-                                        {/* Fix: Added missing opening tag for h4 below */}
                                         <h4 className="font-black text-slate-800 text-sm">{p.name}</h4>
                                         <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${p.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{p.status}</span>
                                     </div>
                                     <p className="text-[9px] font-mono font-black text-indigo-500 tracking-tighter uppercase">{p.id}</p>
                                     <div className="flex justify-between items-end mt-4">
-                                        <p className="text-lg font-black text-[#1B4D3E]">E {p.price}</p>
+                                        <p className="text-lg font-black text-[#1B4D3E]">{p.price === 0 ? 'FREE' : `E ${p.price}`}</p>
                                         <p className="text-[10px] font-bold text-slate-400">{p.quantity} {p.unit} Remaining</p>
                                     </div>
                                 </div>
@@ -797,6 +879,19 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                 <Fingerprint size={200} className="absolute -bottom-20 -right-20 text-white/5 pointer-events-none rotate-12" />
                             </div>
 
+                            {activeTrace.product.certificateUrl && (
+                                <div className="p-6 bg-emerald-50 rounded-[2rem] border border-emerald-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-emerald-600 text-white rounded-2xl"><ShieldCheck size={20}/></div>
+                                        <div>
+                                            <p className="text-xs font-black text-emerald-900 uppercase">Verified Production Certificate</p>
+                                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest">Digital Endorsement Node Active</p>
+                                        </div>
+                                    </div>
+                                    <a href={activeTrace.product.certificateUrl} target="_blank" rel="noopener noreferrer" className="px-5 py-2 bg-white text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-black uppercase shadow-sm hover:bg-emerald-600 hover:text-white transition-all">View Proof</a>
+                                </div>
+                            )}
+
                             <div className="bg-indigo-50/50 p-8 rounded-[3rem] border border-indigo-100">
                                 <div className="flex items-center gap-3 mb-6">
                                     <div className="p-2 bg-white rounded-xl shadow-sm text-indigo-600"><Sparkles size={20}/></div>
@@ -816,7 +911,35 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
             )}
         </div>
 
-        {/* Audit Full-Screen Overlay */}
+        {showRatingModal && (
+            <div className="fixed inset-0 z-[800] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-6 animate-fade-in">
+                <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl p-10 flex flex-col gap-8 relative text-center">
+                    <div className="w-20 h-20 bg-amber-50 rounded-[2rem] flex items-center justify-center mx-auto text-amber-500 border border-amber-100 shadow-sm"><Sparkles size={40}/></div>
+                    <div>
+                        <h3 className="text-2xl font-black text-[#1B4D3E] tracking-tight">National Service Audit</h3>
+                        <p className="text-sm text-slate-400 font-medium mt-2">Rate the quality of the institutional node interaction.</p>
+                    </div>
+                    
+                    <div className="flex justify-center gap-2">
+                        {[1, 2, 3, 4, 5].map(star => (
+                            <button key={star} onClick={() => setRatingValue(star)} className={`p-2 transition-all hover:scale-125 ${star <= ratingValue ? 'text-amber-400 scale-110' : 'text-slate-200'}`}>
+                                <Star size={40} className={star <= ratingValue ? 'fill-amber-400' : ''}/>
+                            </button>
+                        ))}
+                    </div>
+                    
+                    <textarea 
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        placeholder="Provide detailed feedback on service quality..."
+                        className="w-full h-32 p-5 bg-slate-50 border border-slate-100 rounded-3xl text-sm font-medium outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/5 transition-all resize-none"
+                    />
+
+                    <button onClick={handleSubmitFeedback} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-emerald-900 transition-all font-black">Commit Node Feedback</button>
+                </div>
+            </div>
+        )}
+
         {auditImage && (
             <div className="fixed inset-0 z-[700] flex items-center justify-center bg-slate-950/95 p-4 sm:p-10 animate-fade-in" onClick={() => setAuditImage(null)}>
                 <button className="absolute top-10 right-10 p-4 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all">
@@ -854,7 +977,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                             </div>
                         )}
                     </div>
-                    <button onClick={handleStatusUpdate(orderEvidence.id, 'Confirmation', { image: orderEvidence.image, ref: orderEvidence.ref })} disabled={!orderEvidence.ref || !orderEvidence.image} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-[#143d31] transition-all disabled:opacity-50 font-black">Commit Transaction Thread</button>
+                    <button onClick={() => handleStatusUpdate(orderEvidence.id, 'Confirmation', { image: orderEvidence.image, ref: orderEvidence.ref })} disabled={!orderEvidence.ref || !orderEvidence.image} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-[#143d31] transition-all disabled:opacity-50 font-black">Commit Transaction Thread</button>
                 </div>
             </div>
         )}

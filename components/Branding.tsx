@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Shield } from 'lucide-react';
 
@@ -7,7 +6,6 @@ interface BrandingProps {
   className?: string;
 }
 
-// PRIMARY_LOGO updated to AIISlogo.png as requested.
 const PRIMARY_LOGO = "AIISlogo.png";
 const SECONDARY_LOGO = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Coat_of_arms_of_Eswatini.svg/250px-Coat_of_arms_of_Eswatini.svg.png";
 

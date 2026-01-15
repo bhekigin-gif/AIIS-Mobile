@@ -1,3 +1,4 @@
+
 export enum Region {
   Hhohho = 'Hhohho',
   Manzini = 'Manzini',
@@ -133,6 +134,8 @@ export interface SalesProduct {
     operationId?: string;
     parentBatchId?: string;
     isService?: boolean;
+    /* Added to support vetting certificates */
+    certificateUrl?: string;
 }
 
 export interface MarketCartItem extends SalesProduct {
@@ -158,6 +161,9 @@ export interface MarketOrder {
     popImage?: string;
     popRef?: string;
     notes?: string;
+    /* Added to support order ratings and feedback */
+    rating?: number;
+    feedback?: string;
 }
 
 export interface CatalogueItem {
@@ -330,7 +336,7 @@ export const CHIEFDOM_REGISTRY = [
     { Region: "Hhohho", Tinkhundla: "Mbabane West", Chiefdom: "Mngwaneni" },
     { Region: "Hhohho", Tinkhundla: "Mhlangatane", Chiefdom: "Malibeni" },
     { Region: "Hhohho", Tinkhundla: "Mhlangatane", Chiefdom: "Mangweni" },
-    { Region: "Hhohho", Tinkhundla: "Mhlangatane", Chiefdom: "Mphofu" },
+    { Region: "Hhohho", Tinkhundla: "Mphofu" },
     { Region: "Hhohho", Tinkhundla: "Mhlangatane", Chiefdom: "Ndwaaengeni" },
     { Region: "Hhohho", Tinkhundla: "Mhlangatane", Chiefdom: "Nhlanguyawika" },
     { Region: "Hhohho", Tinkhundla: "Mhlangatane", Chiefdom: "Zinyane" },
@@ -580,6 +586,7 @@ export const CHIEFDOM_REGISTRY = [
     { Region: "Lubombo", Tinkhundla: "Gilgal", Chiefdom: "Sigeaweni West" },
     { Region: "Lubombo", Tinkhundla: "Gilgal", Chiefdom: "Vikizijula" },
     { Region: "Lubombo", Tinkhundla: "Lomahasha", Chiefdom: "Lomahasha" },
+    { Region: "Lubombo", Tinkhundla: "Lomahasha", Chiefdom: "Language Code" },
     { Region: "Lubombo", Tinkhundla: "Lomahasha", Chiefdom: "Mafucula" },
     { Region: "Lubombo", Tinkhundla: "Lomahasha", Chiefdom: "Shewula" },
     { Region: "Lubombo", Tinkhundla: "Lubuli", Chiefdom: "Canterburry" },
