@@ -38,7 +38,9 @@ import {
   Contact2,
   Ruler as RulerIcon,
   Image as ImageIcon,
-  Wind
+  Wind,
+  ShieldAlert,
+  Hash
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
@@ -47,7 +49,7 @@ import {
 import { 
   Operation, SalesProduct, MarketOrder, UserProfile, Region, 
   ResourceType, CatalogueItem, ProductionProcess, Resource, 
-  TINKHUNDLA, UserRole, EntityType, ActorType 
+  TINKHUNDLA, UserRole, EntityType, ActorType, CHIEFDOM_REGISTRY, REGIONAL_HIERARCHY 
 } from '../types';
 import { 
   View_Master_Catalogue, Get_System_Metadata, addProductToRegistry, View_All_System_Users 
@@ -135,7 +137,17 @@ const Production: React.FC<ProductionProps> = ({
   const [catDivisionFilter, setCatDivisionFilter] = useState('All');
 
   // Form states
-  const [newEnterprise, setNewEnterprise] = useState({ name: '', region: Region.Manzini, tinkhundla: '', address: '', lat: 0, lng: 0 });
+  const [newEnterprise, setNewEnterprise] = useState({ 
+    name: '', 
+    region: Region.Manzini, 
+    tinkhundla: '', 
+    chiefdom: '',
+    diptankNumber: '',
+    residentNumber: '',
+    address: '', 
+    lat: 0, 
+    lng: 0 
+  });
   const [newUnit, setNewUnit] = useState({ id: '', name: '', unitNumber: '', area: '', height: '0', volume: '0', path: [] as any[] });
   const [newAsset, setNewAsset] = useState<Partial<Resource>>({ type: ResourceType.Machinery, name: '', unitCost: 0, category: 'General', status: 'Available', quantity: 1, initialValue: 0, lifespanHours: 1000, image: '', assignedUnitId: '', unitNumber: 'Unit' });
   const [activityForm, setActivityForm] = useState({ activity: '', resourceId: '', quantity: 1, duration: 1, activityDate: new Date().toISOString().split('T')[0] });
@@ -173,6 +185,9 @@ const Production: React.FC<ProductionProps> = ({
                 region: user.region || Region.Manzini,
                 gps: { lat: -26.48, lng: 31.37 },
                 tinkhundla: user.tinkhundla || '',
+                chiefdom: user.chiefdom || '',
+                diptankNumber: user.diptankNumber || '',
+                residentNumber: user.residentNumber || '',
                 address: 'Initialized from User Profile',
                 units: [], resources: [], operations: []
             };
@@ -366,6 +381,9 @@ const Production: React.FC<ProductionProps> = ({
         ent.name = newEnterprise.name;
         ent.region = newEnterprise.region;
         ent.tinkhundla = newEnterprise.tinkhundla;
+        ent.chiefdom = newEnterprise.chiefdom;
+        ent.diptankNumber = newEnterprise.diptankNumber;
+        ent.residentNumber = newEnterprise.residentNumber;
         ent.address = newEnterprise.address;
         await db.update(Table.Enterprises, editingEnt.id, ent);
         setEditingEnt(null);
@@ -378,6 +396,9 @@ const Production: React.FC<ProductionProps> = ({
             region: newEnterprise.region,
             gps: { lat: newEnterprise.lat, lng: newEnterprise.lng },
             tinkhundla: newEnterprise.tinkhundla,
+            chiefdom: newEnterprise.chiefdom,
+            diptankNumber: newEnterprise.diptankNumber,
+            residentNumber: newEnterprise.residentNumber,
             address: newEnterprise.address,
             units: [],
             resources: [],
@@ -729,6 +750,18 @@ const Production: React.FC<ProductionProps> = ({
                 onClick={() => {
                     setIsPlacingMode(!isPlacingMode);
                     if (isTracingUnit) { drawingManager.setDrawingMode(null); setIsTracingUnit(false); }
+                    setEditingEnt(null);
+                    setNewEnterprise({
+                      name: '', 
+                      region: Region.Manzini, 
+                      tinkhundla: '', 
+                      chiefdom: '',
+                      diptankNumber: '',
+                      residentNumber: '',
+                      address: '', 
+                      lat: 0, 
+                      lng: 0 
+                    });
                 }} 
                 className={`px-6 py-3 rounded-xl font-black text-[9px] uppercase shadow-xl transition-all flex items-center gap-2 border-4 border-white ${isPlacingMode ? 'bg-orange-600 text-white animate-pulse' : 'bg-[#1B4D3E] text-white hover:bg-emerald-900'}`}
               >
@@ -912,7 +945,108 @@ const Production: React.FC<ProductionProps> = ({
 
         {/* Modals */}
         {showEnterpriseModal && (
-            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in"><div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden border border-[#FBBF24]/20"><div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center shrink-0"><div className="flex items-center gap-4"><div className="p-3 bg-white/10 rounded-xl"><Building2 size={24} className="text-[#FBBF24]"/></div><h3 className="text-xl font-black uppercase tracking-tight">{editingEnt ? 'Modify Hub' : 'Register Hub'}</h3></div><button onClick={() => { setShowEnterpriseModal(false); setEditingEnt(null); }} className="text-white/50"><X size={24}/></button></div><div className="p-8 space-y-6"><div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Enterprise Nomenclature</label><input value={newEnterprise.name} onChange={(e)=>setNewEnterprise({...newEnterprise, name: e.target.value})} placeholder="e.g. Malkerns Estate" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none shadow-inner" /></div><div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Address Node</label><input value={newEnterprise.address} onChange={(e)=>setNewEnterprise({...newEnterprise, address: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none shadow-inner" /></div><div className="grid grid-cols-2 gap-4"><div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Region</label><select value={newEnterprise.region} onChange={(e)=>setNewEnterprise({...newEnterprise, region: e.target.value as Region})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm appearance-none">{Object.values(Region).filter(r => r !== Region.All).map(r => <option key={r} value={r}>{r}</option>)}</select></div><div className="space-y-1.5"><label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Constituency</label><select value={newEnterprise.tinkhundla} onChange={(e)=>setNewEnterprise({...newEnterprise, tinkhundla: e.target.value})} className="w-full px-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm appearance-none"><option value="">Select...</option>{TINKHUNDLA[newEnterprise.region as Region]?.map(t => <option key={t} value={t}>{t}</option>)}</select></div></div><button onClick={handleSaveEnterprise} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl transition-all">Establish Node</button></div></div></div>
+            <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in">
+              <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-[#FBBF24]/20 flex flex-col max-h-[90vh]">
+                <div className="bg-[#1B4D3E] p-8 text-white flex justify-between items-center shrink-0">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/10 rounded-xl"><Building2 size={24} className="text-[#FBBF24]"/></div>
+                    <h3 className="text-xl font-black uppercase tracking-tight">{editingEnt ? 'Modify Hub Node' : 'Register Hub Node'}</h3>
+                  </div>
+                  <button onClick={() => { setShowEnterpriseModal(false); setEditingEnt(null); }} className="text-white/50"><X size={24}/></button>
+                </div>
+                <div className="p-8 space-y-6 overflow-y-auto no-scrollbar">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Enterprise Nomenclature</label>
+                    <input value={newEnterprise.name} onChange={(e)=>setNewEnterprise({...newEnterprise, name: e.target.value})} placeholder="e.g. Malkerns Estate" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none shadow-inner focus:bg-white focus:ring-4 focus:ring-[#1B4D3E]/5 transition-all" />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Umphakatsi / Ward Name</label>
+                    <div className="relative">
+                      <Landmark className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                      <select 
+                        value={newEnterprise.chiefdom} 
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const entry = CHIEFDOM_REGISTRY.find(c => c.Chiefdom === val);
+                          if (entry) {
+                            setNewEnterprise(prev => ({ 
+                              ...prev, 
+                              chiefdom: val, 
+                              region: entry.Region as Region, 
+                              tinkhundla: entry.Tinkhundla.toUpperCase() 
+                            }));
+                          } else {
+                            setNewEnterprise(prev => ({ ...prev, chiefdom: val }));
+                          }
+                        }} 
+                        className="w-full pl-12 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none appearance-none focus:bg-white focus:ring-4 focus:ring-[#1B4D3E]/5 transition-all"
+                      >
+                        <option value="">Select Umphakatsi...</option>
+                        {CHIEFDOM_REGISTRY.filter(c => {
+                            const regMatch = !newEnterprise.region || c.Region === newEnterprise.region;
+                            const tinkMatch = !newEnterprise.tinkhundla || c.Tinkhundla.toLowerCase() === newEnterprise.tinkhundla.toLowerCase();
+                            return regMatch && tinkMatch;
+                        }).map((c, i) => (
+                            <option key={i} value={c.Chiefdom}>
+                                {c.Chiefdom} ({c.Tinkhundla}, {c.Region})
+                            </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={18} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Diptank Number</label>
+                      <div className="relative">
+                        <ShieldAlert className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input name="diptankNumber" value={newEnterprise.diptankNumber} onChange={(e)=>setNewEnterprise({...newEnterprise, diptankNumber: e.target.value})} placeholder="e.g. 1024" className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all shadow-inner" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resident Number</label>
+                      <div className="relative">
+                        <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                        <input name="residentNumber" value={newEnterprise.residentNumber} onChange={(e)=>setNewEnterprise({...newEnterprise, residentNumber: e.target.value})} placeholder="e.g. RES-01" className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white transition-all shadow-inner" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Region (Auto-Sync)</label>
+                        <select 
+                          value={newEnterprise.region} 
+                          onChange={(e)=>setNewEnterprise({...newEnterprise, region: e.target.value as Region, tinkhundla: '', chiefdom: ''})} 
+                          className="w-full px-4 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl font-black text-[10px] uppercase appearance-none text-slate-500"
+                        >
+                          {Object.values(Region).filter(r => r !== Region.All).map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Constituency (Auto-Sync)</label>
+                        <select 
+                          value={newEnterprise.tinkhundla} 
+                          onChange={(e)=>setNewEnterprise({...newEnterprise, tinkhundla: e.target.value, chiefdom: ''})} 
+                          className="w-full px-4 py-3.5 bg-slate-100 border border-slate-100 rounded-2xl font-black text-[10px] uppercase appearance-none text-slate-500"
+                        >
+                          <option value="">Select...</option>
+                          {TINKHUNDLA[newEnterprise.region as Region]?.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Address Node / Physical Location</label>
+                    <input value={newEnterprise.address} onChange={(e)=>setNewEnterprise({...newEnterprise, address: e.target.value})} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none shadow-inner" />
+                  </div>
+
+                  <button onClick={handleSaveEnterprise} disabled={!newEnterprise.name || !newEnterprise.chiefdom} className="w-full py-5 bg-[#1B4D3E] text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl transition-all hover:bg-emerald-900 active:scale-95 disabled:opacity-50">Establish Spatial Hub</button>
+                </div>
+              </div>
+            </div>
         )}
 
         {showUnitModal && (

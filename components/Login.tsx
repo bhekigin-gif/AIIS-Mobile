@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Lock, LogIn, ChevronRight, Users, Key, AlertCircle, Sparkles, UserCircle, ArrowRightCircle, Loader2
@@ -173,6 +172,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
                                     placeholder="••••••••"
                                 />
                             </div>
+                        </div>
+
+                        <div className="flex justify-end px-1">
+                            <button 
+                                type="button"
+                                onClick={() => alert("Redirecting to password recovery flow...")}
+                                className="text-[10px] font-black text-[#1B4D3E] uppercase tracking-widest hover:text-emerald-700 transition-colors"
+                            >
+                                Forgot Password?
+                            </button>
                         </div>
                     </div>
 

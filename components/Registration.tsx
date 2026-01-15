@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   UserPlus, Save, CheckCircle, MapPin, User, Shield, Phone, FileText, Loader2, 
@@ -8,9 +7,14 @@ import {
   Users as UsersIcon,
   ChevronDown,
   AlertTriangle,
-  BadgeCheck
+  BadgeCheck,
+  Zap,
+  Droplets,
+  Landmark,
+  ShieldAlert,
+  Hash
 } from 'lucide-react';
-import { Region, ActorType, TINKHUNDLA, EntityType, UserRole, UserProfile, RDAs } from '../types';
+import { Region, ActorType, EntityType, UserRole, UserProfile, CHIEFDOM_REGISTRY, REGIONAL_HIERARCHY } from '../types';
 import { Register_New_User, Get_System_Metadata, View_All_System_Users } from '../services/adminDataService';
 import { extractPersonalDetailsFromID } from '../services/geminiService';
 
@@ -64,10 +68,13 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
     chiefCode: '',
     phone: '',
     email: '',
-    country: 'Eswatini',
-    region: Region.Manzini as string,
-    rda: '',
-    tinkhundla: '',
+    country: 'All',
+    region: 'All',
+    rda: 'All',
+    tinkhundla: 'All',
+    chiefdom: 'All',
+    diptankNumber: 'All',
+    residentNumber: 'All',
     password: '',
     confirmPassword: ''
   });
@@ -90,7 +97,6 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
       const year = id.substring(0, 4);
       const month = id.substring(4, 6);
       const day = id.substring(6, 8);
-      // Basic validation: month 1-12, day 1-31
       const m = parseInt(month);
       const d = parseInt(day);
       if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
@@ -112,6 +118,35 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
             idNumber: value, 
             dob: calculatedDob || prev.dob 
         }));
+    } else if (name === 'chiefdom') {
+        if (value === 'All') {
+            setFormData(prev => ({ ...prev, chiefdom: 'All' }));
+            return;
+        }
+        const entry = CHIEFDOM_REGISTRY.find(c => c.Chiefdom === value);
+        if (entry) {
+            // Finding the RDA that contains this Tinkhundla in this Region
+            const regionData = REGIONAL_HIERARCHY[entry.Region];
+            let matchingRda = 'All';
+            if (regionData) {
+              const rdaMatch = Object.entries(regionData).find(([rdaName, tinkList]) => tinkList.includes(entry.Tinkhundla.toUpperCase()));
+              if (rdaMatch) matchingRda = rdaMatch[0];
+            }
+
+            setFormData(prev => ({
+                ...prev,
+                chiefdom: value,
+                region: entry.Region,
+                tinkhundla: entry.Tinkhundla.toUpperCase(),
+                rda: matchingRda
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, chiefdom: value }));
+        }
+    } else if (name === 'region') {
+        setFormData(prev => ({ ...prev, region: value, rda: 'All', tinkhundla: 'All', chiefdom: 'All' }));
+    } else if (name === 'rda') {
+        setFormData(prev => ({ ...prev, rda: value, tinkhundla: 'All', chiefdom: 'All' }));
     } else {
         setFormData({ ...formData, [name]: value });
     }
@@ -174,7 +209,7 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
         region: formData.region,
         tinkhundla: formData.tinkhundla,
         rda: formData.rda,
-        country: formData.country,
+        country: formData.country === 'All' ? 'Kingdom of Eswatini' : formData.country,
         status: finalStatus as any,
         contact: formData.phone,
         email: formData.email,
@@ -182,6 +217,9 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
         organization: formData.organizationName,
         organizationId: formData.organizationId,
         chiefCode: formData.chiefCode,
+        chiefdom: formData.chiefdom,
+        diptankNumber: formData.diptankNumber,
+        residentNumber: formData.residentNumber,
         dateRegistered: new Date().toISOString().split('T')[0]
     };
     await Register_New_User(newUser);
@@ -388,39 +426,96 @@ const Registration: React.FC<RegistrationProps> = ({ onBackToLogin, onBackToHome
 
                   {step === 4 && (
                       <div className="space-y-4 animate-fade-in">
-                          <div className="space-y-3">
-                              <div className="space-y-1">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Country Node</label>
-                                  <div className="relative">
-                                      <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                                      <select name="country" value={formData.country} onChange={handleChange} className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none appearance-none focus:bg-white">
-                                          {systemMetadata.countries.map((c: string) => <option key={c} value={c}>{c}</option>)}
-                                      </select>
+                          <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100 mb-2">
+                              <div className="flex items-start gap-3">
+                                  <ShieldCheck size={18} className="text-emerald-600 mt-0.5"/>
+                                  <div>
+                                      <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Hierarchical Data Scoping</p>
+                                      <p className="text-[9px] text-emerald-700 font-medium leading-relaxed mt-1">
+                                          Official National Map: Parameters set to "All" indicate access to the entire parent tier.
+                                      </p>
                                   </div>
                               </div>
-                              <div className="space-y-1">
-                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Administrative Region</label>
-                                  <div className="relative">
-                                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                                      <select name="region" value={formData.region} onChange={handleChange} className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none appearance-none focus:bg-white">
-                                          {systemMetadata.regions.map((r: string) => <option key={r} value={r}>{r}</option>)}
-                                      </select>
-                                  </div>
+                          </div>
+
+                          <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Country</label>
+                                    <select name="country" value={formData.country} onChange={handleChange} className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
+                                        <option value="All">All Jurisdictions</option>
+                                        <option value="Eswatini">Kingdom of Eswatini</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Region</label>
+                                    <select name="region" value={formData.region} onChange={handleChange} className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none">
+                                        <option value="All">All Regions</option>
+                                        {Object.values(Region).filter(r => r !== 'All').map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
                               </div>
+
                               <div className="grid grid-cols-2 gap-4">
                                   <div className="space-y-1">
-                                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">RDA Node</label>
+                                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">RDA Node</label>
                                       <select name="rda" value={formData.rda} onChange={handleChange} className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none appearance-none focus:bg-white">
-                                          <option value="">Select RDA...</option>
-                                          {RDAs[formData.region as Region]?.map((rda: string) => <option key={rda} value={rda}>{rda}</option>)}
+                                          <option value="All">All RDAs</option>
+                                          {formData.region !== 'All' && REGIONAL_HIERARCHY[formData.region] && 
+                                            Object.keys(REGIONAL_HIERARCHY[formData.region]).map((rda: string) => <option key={rda} value={rda}>{rda}</option>)
+                                          }
                                       </select>
                                   </div>
                                   <div className="space-y-1">
-                                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Constituency (Tinkhundla)</label>
+                                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Tinkhundla (Constituency)</label>
                                       <select name="tinkhundla" value={formData.tinkhundla} onChange={handleChange} className="w-full px-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none appearance-none focus:bg-white">
-                                          <option value="">Select Tinkhundla...</option>
-                                          {TINKHUNDLA[formData.region as Region]?.map(t => <option key={t} value={t}>{t}</option>)}
+                                          <option value="All">All Tinkhundla</option>
+                                          {formData.region !== 'All' && (
+                                            formData.rda !== 'All' ? (
+                                              REGIONAL_HIERARCHY[formData.region]?.[formData.rda]?.map(t => <option key={t} value={t}>{t}</option>)
+                                            ) : (
+                                              // Flatten all tinkhundla in region if RDA is All
+                                              Object.values(REGIONAL_HIERARCHY[formData.region] || {}).flat().map(t => <option key={t} value={t}>{t}</option>)
+                                            )
+                                          )}
                                       </select>
+                                  </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Umphakatsi / Ward Name</label>
+                                  <div className="relative">
+                                      <Landmark className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                                      <select name="chiefdom" value={formData.chiefdom} onChange={handleChange} className="w-full pl-12 pr-10 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none appearance-none focus:bg-white transition-all">
+                                          <option value="All">All Chiefdoms / All-Inclusive View</option>
+                                          {CHIEFDOM_REGISTRY.filter(c => {
+                                            const regionMatch = formData.region === 'All' || c.Region === formData.region;
+                                            const tinkMatch = formData.tinkhundla === 'All' || c.Tinkhundla.toUpperCase() === formData.tinkhundla;
+                                            return regionMatch && tinkMatch;
+                                          }).map((c, i) => (
+                                              <option key={i} value={c.Chiefdom}>
+                                                  {c.Chiefdom} ({c.Tinkhundla}, {c.Region})
+                                              </option>
+                                          ))}
+                                      </select>
+                                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={18} />
+                                  </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Diptank Number</label>
+                                      <div className="relative">
+                                          <ShieldAlert className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                                          <input name="diptankNumber" value={formData.diptankNumber} onChange={handleChange} placeholder="e.g. 1024" className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white" />
+                                      </div>
+                                  </div>
+                                  <div className="space-y-1">
+                                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Resident Number</label>
+                                      <div className="relative">
+                                          <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                                          <input name="residentNumber" value={formData.residentNumber} onChange={handleChange} placeholder="e.g. RES-01" className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-sm outline-none focus:bg-white" />
+                                      </div>
                                   </div>
                               </div>
                           </div>
