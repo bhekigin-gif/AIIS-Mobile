@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, ChevronRight, BookOpen, Download, Users, Eye, ArrowLeft, Upload, X, Plus, Search, 
@@ -6,10 +5,12 @@ import {
   Briefcase, Layers, Utensils, Info, HelpCircle, Copy, Clapperboard, PlayCircle, ShieldCheck, 
   Tractor, ShoppingCart, Table, Check, XCircle, MousePointerClick, Factory, Truck, Recycle, 
   Store, Package, ShoppingBag, BookOpenCheck, Lightbulb, Sparkles, Wand2, Loader2, MessageSquare, 
-  SearchCode, BarChart3, Fingerprint, Activity, Building2, UserCheck, ShieldAlert, Link, TrendingUp,
-  HardHat, ClipboardList, Target, Zap, LayoutDashboard, Map as MapIcon, Globe
+  SearchCode, BarChart3, Fingerprint, Activity, Building2, UserCheck, ShieldAlert, Link as LinkIcon, TrendingUp,
+  HardHat, ClipboardList, Target, Zap, LayoutDashboard, Map as MapIcon, Globe, GraduationCap, Award,
+  Trophy, BadgeCheck, ExternalLink, QrCode,
+  AlertCircle, Camera, FileUp, Lock
 } from 'lucide-react';
-import { ActorType } from '../types';
+import { ActorType, UserProfile } from '../types';
 import { generateCustomUserStory } from '../services/geminiService';
 import { Get_System_Metadata } from '../services/adminDataService';
 
@@ -35,8 +36,12 @@ interface PersonaWorkflow {
     steps: {title: string, tool: string, description: string}[];
 }
 
-const CapacityBuilding: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'documents' | 'matrix' | 'user_stories'>('user_stories');
+interface CapacityBuildingProps {
+    user: UserProfile | null;
+}
+
+const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
+  const [activeTab, setActiveTab] = useState<'documents' | 'matrix' | 'user_stories' | 'training'>('user_stories');
   const [activeDocCategory, setActiveDocCategory] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   
@@ -46,6 +51,13 @@ const CapacityBuilding: React.FC = () => {
 
   const [systemMetadata, setSystemMetadata] = useState<any>(null);
   const [documentCategories, setDocumentCategories] = useState<any[]>([]);
+
+  // Training Progress State
+  const [proficiencyLevels, setProficiencyLevels] = useState({
+      level1: { status: 'Completed', score: 100, date: '2024-01-15' },
+      level2: { status: 'In Progress', score: 65, date: '-' },
+      level3: { status: 'Locked', score: 0, date: '-' }
+  });
 
   useEffect(() => {
     const loadMetadata = async () => {
@@ -119,7 +131,7 @@ const CapacityBuilding: React.FC = () => {
           narrative: "Ethan is visiting smallholders in Siphofaneni. A farmer shows him a leaf with strange holes. Ethan uses the AI Expert Advisor to take a photo. The AIIS pathology node identifies the pest as Fall Armyworm and suggests specific remediation steps from the Master Catalogue. Ethan records the outbreak location on the map, instantly alerting the Ministry Supervisor.",
           linkage: 'Direct link between National Policy and Farmer implementation.',
           steps: [
-              { title: 'GIS Audit', tool: 'Production GIS', description: 'Verifies farmer-traced boundaries to ensure national data accuracy.' },
+              { title: 'GIS Audit', tool: 'Production GIS', description: 'Traces farmer-traced boundaries to ensure national data accuracy.' },
               { title: 'AI Diagnosis', tool: 'AIIS Expert', description: 'Uses computer vision to identify pathogens and recommend treatments.' },
               { title: 'Library Access', tool: 'Knowledge Bank', description: 'Downloads regional Gross Margin guides to help farmers plan budgets.' }
           ]
@@ -157,15 +169,6 @@ const CapacityBuilding: React.FC = () => {
 
   const getFileUrl = (fileName: string) => `https://www.agrinfosystems.gov.sz/assets/uploads${encodeURIComponent(fileName)}`;
   const getFileExtension = (filename: string) => filename.split('.').pop()?.toLowerCase() || '';
-
-  const userRoleMatrix = [
-      { component: "National Dashboard", guest: "Summary", farmer: "My Stats", gov: "Full Analytics", extension: "Regional", market: "Price Trends" },
-      { component: "Production: Farm Setup", guest: "No Access", farmer: "GPS Mapping", gov: "National Map", extension: "Verification", market: "No Access" },
-      { component: "Production: Operations", guest: "No Access", farmer: "Logging", gov: "Audit", extension: "Monitoring", market: "Availability" },
-      { component: "Marketplace Trading", guest: "View Prices", farmer: "Sell", gov: "Regulate", extension: "Verify", market: "Buy/Source" },
-      { component: "Knowledge AI", guest: "General", farmer: "Advisory", gov: "Reports", extension: "Full Access", market: "Standards" },
-      { component: "Affiliation Control", guest: "No Access", farmer: "Self-Link", gov: "Manage Registry", extension: "Verification", market: "No Access" }
-  ];
 
   const handleGenerateStory = async () => {
       if (!storyGoal.trim()) return;
@@ -209,10 +212,158 @@ const CapacityBuilding: React.FC = () => {
       slate: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-100', dot: 'bg-slate-100' },
   };
 
+  const handleConnectPortal = () => {
+      const baseUrl = 'https://ai.studio/apps/drive/1pAAVmz5mrJH-e50_RocClwVyLtKnlVz6';
+      if (!user) {
+          window.open(baseUrl, '_blank');
+          return;
+      }
+      // Encode user params into the URL
+      const params = new URLSearchParams({
+          userId: user.id || 'guest',
+          userName: user.name,
+          userRole: user.role,
+          actorType: user.actorType || 'unknown',
+          region: user.region || 'National'
+      });
+      window.open(`${baseUrl}?${params.toString()}`, '_blank');
+  };
+
   if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
 
+  const renderTrainingPortal = () => (
+      <div className="space-y-10 animate-fade-in pb-20">
+          {/* Main Hero Linkage */}
+          <div className="bg-[#1B4D3E] p-10 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl relative overflow-hidden transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
+              <div className="relative z-10 max-w-xl space-y-6">
+                  <div className="flex items-center gap-4">
+                      <div className="p-4 bg-white/10 rounded-2xl border border-white/10 shadow-xl">
+                          <GraduationCap size={32} className="text-[#FBBF24]"/>
+                      </div>
+                      <div>
+                          <h3 className="text-3xl font-black uppercase tracking-tight leading-none">AIIS Training Node</h3>
+                          <p className="text-green-300 text-[10px] font-black uppercase tracking-[0.3em] mt-2">External Learning Sync Active</p>
+                      </div>
+                  </div>
+                  <p className="text-sm font-medium leading-relaxed opacity-80">
+                      Connect your node to the official AIIS Training Application to complete Level 1-3 modules, 
+                      take national competency quizzes, and sync your field-check certifications.
+                  </p>
+                  <div className="flex flex-wrap gap-4 pt-2">
+                      <button 
+                        onClick={handleConnectPortal}
+                        className="px-8 py-4 bg-[#FBBF24] text-[#1B4D3E] rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transform-gpu will-change-transform transition-all flex items-center gap-3 active:scale-95 border-2 border-transparent hover:border-white/20"
+                        style={{ backfaceVisibility: 'hidden' }}
+                      >
+                          Connect Training Portal <ExternalLink size={16}/>
+                      </button>
+                      <button 
+                        onClick={() => alert("Waiting for Node Handshake... Please ensure Training App is logged in.")}
+                        className="px-8 py-4 bg-white/5 border border-white/20 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-white/10 transition-all flex items-center gap-3 active:scale-95 transform-gpu"
+                        style={{ backfaceVisibility: 'hidden' }}
+                      >
+                          Sync Progress <RefreshCw size={16}/>
+                      </button>
+                  </div>
+              </div>
+              <Trophy size={280} className="absolute -bottom-10 -right-10 text-white/5 pointer-events-none rotate-12" />
+          </div>
+
+          {/* Proficiency Dashboard */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Level 1: Basic */}
+              <div className="bg-white p-8 rounded-[2.5rem] border-2 border-emerald-100 shadow-sm relative overflow-hidden group min-h-[320px] flex flex-col transform-gpu will-change-transform transition-all duration-300" style={{ backfaceVisibility: 'hidden' }}>
+                  <div className="flex justify-between items-start mb-6">
+                      <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl shadow-inner"><BookOpenCheck size={28}/></div>
+                      <span className="px-4 py-1 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest">Completed</span>
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Level 1: Basic</h4>
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em] mt-1">The Informed Partner</p>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed mt-4">Interface mastery, institutional data access, and core capacity modules.</p>
+                  
+                  <div className="mt-auto pt-8 border-t border-slate-50 flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 font-black text-sm border-2 border-emerald-100">100%</div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">Quiz Score</p>
+                      </div>
+                      <BadgeCheck size={24} className="text-emerald-500"/>
+                  </div>
+              </div>
+
+              {/* Level 2: Intermediate */}
+              <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 shadow-sm relative overflow-hidden group hover:border-[#FBBF24]/50 transform-gpu will-change-transform transition-all duration-300 min-h-[320px] flex flex-col" style={{ backfaceVisibility: 'hidden' }}>
+                  <div className="flex justify-between items-start mb-6">
+                      <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl shadow-inner"><Zap size={28}/></div>
+                      <span className="px-4 py-1 bg-amber-400 text-[#1B4D3E] rounded-lg text-[10px] font-black uppercase tracking-widest animate-pulse">In Progress</span>
+                  </div>
+                  <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Level 2: Inter</h4>
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-[0.2em] mt-1">The Operational User</p>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed mt-4">Precision GIS tracing, AI diagnostic nodes, and regional outreach logging.</p>
+                  
+                  <div className="mt-auto space-y-4">
+                      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          <span>Progress</span>
+                          <span>65%</span>
+                      </div>
+                      <div className="w-full bg-slate-50 h-2.5 rounded-full overflow-hidden border border-slate-100 shadow-inner">
+                          <div className="bg-[#FBBF24] h-full rounded-full transition-all duration-1000" style={{ width: '65%' }} />
+                      </div>
+                      <div className="flex items-center gap-2 pt-2">
+                          <AlertCircle size={14} className="text-amber-500"/>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Next: Field-Check Verification</p>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Level 3: Advanced */}
+              <div className="bg-slate-50 p-8 rounded-[2.5rem] border-2 border-dashed border-slate-200 shadow-inner opacity-60 min-h-[320px] flex flex-col transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
+                  <div className="flex justify-between items-start mb-6">
+                      <div className="p-4 bg-white text-slate-300 rounded-2xl border border-slate-100"><ShieldAlert size={28}/></div>
+                      <span className="px-4 py-1 bg-slate-200 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-widest">Locked</span>
+                  </div>
+                  <h4 className="text-xl font-black text-slate-400 uppercase tracking-tight">Level 3: Adv</h4>
+                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] mt-1">The Enterprise Manager</p>
+                  <p className="text-xs text-slate-400 font-medium leading-relaxed mt-4">Bulk inventory cycles, immutable traceability hashing, and market settlement.</p>
+                  
+                  <div className="mt-auto flex flex-col items-center justify-center py-6 border-t border-slate-200">
+                      <Lock size={24} className="text-slate-300 mb-2"/>
+                      <p className="text-[9px] font-black text-slate-300 uppercase">Complete Level 2 to Unlock</p>
+                  </div>
+              </div>
+          </div>
+
+          {/* Sync Certification Area */}
+          <div className="bg-indigo-50 border-2 border-indigo-100 p-8 rounded-[3rem] flex flex-col md:flex-row items-center gap-10 relative transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
+              <div className="w-48 h-48 bg-white rounded-3xl p-6 shadow-xl border border-indigo-100 shrink-0 flex items-center justify-center group cursor-pointer hover:scale-105 transform-gpu will-change-transform transition-all relative overflow-hidden" style={{ backfaceVisibility: 'hidden' }}>
+                  <QrCode size={120} className="text-[#1B4D3E] opacity-20 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/90 opacity-100 group-hover:opacity-0 transition-opacity rounded-3xl">
+                      <div className="text-center space-y-2">
+                          <Camera size={32} className="mx-auto text-indigo-400"/>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-indigo-600">Scan Certificate</p>
+                      </div>
+                  </div>
+              </div>
+              <div className="space-y-4">
+                  <h4 className="text-xl font-black text-indigo-900 uppercase tracking-tight">Commit Institutional Token</h4>
+                  <p className="text-sm font-medium text-indigo-700/80 leading-relaxed">
+                      Completed your training offline? Upload your cryptographically signed **Training Node Token (.json)** 
+                      or scan your completion QR code to instantly update your national registry status and permissions.
+                  </p>
+                  <div className="flex gap-4 pt-2">
+                      <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2 active:scale-95 transform-gpu border-2 border-transparent" style={{ backfaceVisibility: 'hidden' }}>
+                          <FileUp size={16}/> Upload Node Token
+                      </button>
+                      <button className="px-6 py-3 bg-white text-indigo-600 border border-indigo-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-50 transition-all active:scale-95 transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
+                          Verification Manual
+                      </button>
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
+
   const renderMatrix = () => (
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-fade-in">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-fade-in transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
           <div className="p-8 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-xl font-black text-[#1B4D3E] flex items-center gap-2 uppercase tracking-tight">
                   <ShieldCheck size={28} className="text-emerald-600"/> Institutional Access Matrix
@@ -262,10 +413,11 @@ const CapacityBuilding: React.FC = () => {
                   return (
                   <div 
                     key={workflow.id} 
-                    className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-2xl transition-all group hover:-translate-y-1"
+                    className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-sm overflow-hidden flex flex-col hover:shadow-2xl hover:border-[#1B4D3E]/10 transform-gpu will-change-transform hover:-translate-y-1 transition-all duration-300 group"
+                    style={{ backfaceVisibility: 'hidden' }}
                   >
-                      <div className={`p-8 ${colors.bg} flex items-center gap-5 border-b ${colors.border} transition-colors group-hover:bg-opacity-80`}>
-                          <div className="p-4 rounded-3xl bg-white shadow-xl group-hover:scale-110 transition-transform">{workflow.icon}</div>
+                      <div className={`p-8 ${colors.bg} flex items-center gap-5 border-b-2 ${colors.border} transition-colors group-hover:bg-opacity-80`}>
+                          <div className="p-4 rounded-3xl bg-white shadow-xl group-hover:scale-110 transform-gpu transition-transform" style={{ backfaceVisibility: 'hidden' }}>{workflow.icon}</div>
                           <div>
                               <h4 className="font-black text-slate-800 text-lg leading-tight">{workflow.personaName}</h4>
                               <p className={`text-[10px] font-black ${colors.text} uppercase tracking-widest opacity-70 mt-0.5`}>{workflow.role}</p>
@@ -280,7 +432,7 @@ const CapacityBuilding: React.FC = () => {
 
                           <div className="space-y-3">
                               <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Workflow Summary</p>
-                              <p className="text-xs text-slate-500 leading-relaxed font-medium">{workflow.narrative}</p>
+                              <p className="text-xs text-slate-500 font-medium leading-relaxed">{workflow.narrative}</p>
                           </div>
                           
                           <div className="space-y-6">
@@ -305,10 +457,11 @@ const CapacityBuilding: React.FC = () => {
                           </div>
                       </div>
                       
-                      <div className="p-6 bg-slate-50 border-t border-slate-100 mt-auto">
+                      <div className="p-6 bg-slate-50 border-t-2 border-slate-100 mt-auto">
                           <button 
                             onClick={() => handleApplyPresetWorkflow(workflow)}
-                            className={`w-full py-4 rounded-2xl bg-white border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest hover:border-${workflow.color}-400 hover:text-${colors.text.split('-')[1]}-700 transition-all flex items-center justify-center gap-3 shadow-sm active:scale-95`}
+                            className={`w-full py-4 rounded-2xl bg-white border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest hover:border-${workflow.color}-400 hover:text-${colors.text.split('-')[1]}-700 transition-all flex items-center justify-center gap-3 shadow-sm active:scale-95 transform-gpu`}
+                            style={{ backfaceVisibility: 'hidden' }}
                           >
                               Expand Technical Story <Sparkles size={16} className={`${colors.text}`} />
                           </button>
@@ -317,7 +470,7 @@ const CapacityBuilding: React.FC = () => {
               )})}
           </div>
 
-          <div id="ai-narrative" className="bg-[#1B4D3E] rounded-[3rem] p-12 text-white relative overflow-hidden shadow-2xl shadow-green-900/40 animate-slide-up">
+          <div id="ai-narrative" className="bg-[#1B4D3E] rounded-[3rem] p-12 text-white relative overflow-hidden shadow-2xl shadow-green-900/40 animate-slide-up transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
               <div className="grid grid-cols-1 lg:grid-cols-5 gap-16 relative z-10">
                   <div className="lg:col-span-2 space-y-8">
                       <div className="space-y-4">
@@ -330,7 +483,7 @@ const CapacityBuilding: React.FC = () => {
                       
                       <div className="space-y-6">
                           <div className="space-y-2">
-                              <label className="text-[10px] font-black text-green-300 uppercase tracking-widest ml-1">Select Persona</label>
+                              <label className="text-[10px] font-black text-green-300 uppercase tracking-widest ml-1">Persona</label>
                               <select 
                                 value={storyRole}
                                 onChange={(e) => setStoryRole(e.target.value as ActorType)}
@@ -351,7 +504,8 @@ const CapacityBuilding: React.FC = () => {
                           <button 
                             onClick={handleGenerateStory}
                             disabled={isGeneratingStory || !storyGoal.trim()}
-                            className="w-full bg-[#FBBF24] text-[#1B4D3E] py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-yellow-400 disabled:opacity-50 flex items-center justify-center gap-3 transition-all active:scale-95 group"
+                            className="w-full bg-[#FBBF24] text-[#1B4D3E] py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-yellow-400 disabled:opacity-50 flex items-center justify-center gap-3 transition-all active:scale-95 group transform-gpu"
+                            style={{ backfaceVisibility: 'hidden' }}
                           >
                               {isGeneratingStory ? <Loader2 size={20} className="animate-spin"/> : <Sparkles size={20} />}
                               {isGeneratingStory ? 'Synthesizing...' : 'Generate Simulation'}
@@ -360,7 +514,7 @@ const CapacityBuilding: React.FC = () => {
                   </div>
 
                   <div className="lg:col-span-3">
-                      <div className="bg-slate-900/40 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 h-full min-h-[500px] flex flex-col p-10 shadow-inner relative">
+                      <div className="bg-slate-900/40 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 h-full min-h-[500px] flex flex-col p-10 shadow-inner relative overflow-hidden transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
                           {generatedStory ? (
                               <div className="animate-fade-in prose prose-invert prose-sm max-w-none">
                                   <div className="flex justify-between items-center mb-10 pb-6 border-b border-white/10">
@@ -401,7 +555,7 @@ const CapacityBuilding: React.FC = () => {
         });
 
         return (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-fade-in max-w-5xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-fade-in max-w-5xl mx-auto transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
                     <div className="flex items-center gap-3">
                         <button onClick={() => { setActiveDocCategory(null); setSearchTerm(''); }} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-all"><ArrowLeft size={20} /></button>
@@ -455,7 +609,8 @@ const CapacityBuilding: React.FC = () => {
                 <button 
                     key={cat.id}
                     onClick={() => setActiveDocCategory(cat.id)}
-                    className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-xl hover:border-emerald-200 transition-all text-left group flex flex-col justify-between h-48"
+                    className="bg-white p-8 rounded-[2rem] border-2 border-slate-100 shadow-sm hover:shadow-xl hover:border-emerald-200 transform-gpu transition-all text-left group flex flex-col justify-between h-48 active:scale-95"
+                    style={{ backfaceVisibility: 'hidden' }}
                 >
                     <div className="flex justify-between items-start">
                         <div className="p-4 bg-slate-50 rounded-[1.5rem] group-hover:bg-emerald-50 transition-colors">
@@ -475,17 +630,27 @@ const CapacityBuilding: React.FC = () => {
     );
   };
 
+  const userRoleMatrix = [
+      { component: "National Dashboard", guest: "Summary", farmer: "My Stats", gov: "Full Analytics", extension: "Regional", market: "Price Trends" },
+      { component: "Production: Farm Setup", guest: "No Access", farmer: "GPS Mapping", gov: "National Map", extension: "Verification", market: "No Access" },
+      { component: "Production: Operations", guest: "No Access", farmer: "Logging", gov: "Audit", extension: "Monitoring", market: "Availability" },
+      { component: "Marketplace Trading", guest: "View Prices", farmer: "Sell", gov: "Regulate", extension: "Verify", market: "Buy/Source" },
+      { component: "Knowledge AI", guest: "General", farmer: "Advisory", gov: "Reports", extension: "Full Access", market: "Standards" },
+      { component: "Affiliation Control", guest: "No Access", farmer: "Self-Link", gov: "Manage Registry", extension: "Verification", market: "No Access" }
+  ];
+
   return (
     <div className="space-y-10 animate-fade-in">
        <div className="flex flex-col md:flex-row justify-between items-end border-b border-slate-200 pb-8 gap-6">
         <div className="space-y-1">
-          <h2 className="text-4xl font-black text-[#1B4D3E] tracking-tight">Institutional Capacity</h2>
-          <p className="text-slate-500 font-medium text-lg">Operational workflows and national agricultural knowledge bank.</p>
+          <h2 className="text-4xl font-black text-[#1B4D3E] tracking-tight uppercase">Capacity</h2>
+          <p className="text-slate-500 font-medium text-lg">Operational workflows and national knowledge bank.</p>
         </div>
-        <div className="flex gap-2 bg-white p-2 rounded-3xl border border-slate-200 shadow-sm">
-            <button onClick={() => setActiveTab('user_stories')} className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'user_stories' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>User Stories</button>
-            <button onClick={() => setActiveTab('documents')} className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'documents' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>Library</button>
-            <button onClick={() => setActiveTab('matrix')} className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'matrix' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>Permissions</button>
+        <div className="flex gap-2 bg-white p-2 rounded-3xl border border-slate-200 shadow-sm overflow-x-auto no-scrollbar">
+            <button onClick={() => setActiveTab('user_stories')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'user_stories' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>User Stories</button>
+            <button onClick={() => setActiveTab('training')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'training' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}><GraduationCap size={16}/> Training Portal</button>
+            <button onClick={() => setActiveTab('documents')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'documents' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>Library</button>
+            <button onClick={() => setActiveTab('matrix')} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeTab === 'matrix' ? 'bg-[#1B4D3E] text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50'}`}>Permissions</button>
         </div>
       </div>
       
@@ -493,6 +658,7 @@ const CapacityBuilding: React.FC = () => {
           {activeTab === 'documents' && renderDocs()}
           {activeTab === 'matrix' && renderMatrix()}
           {activeTab === 'user_stories' && renderUserStories()}
+          {activeTab === 'training' && renderTrainingPortal()}
       </div>
 
       {showUploadModal && (
@@ -528,7 +694,7 @@ const CapacityBuilding: React.FC = () => {
                              </div>
                          )}
                     </div>
-                    <button onClick={handleUpload} disabled={!newFile} className="w-full bg-[#1B4D3E] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-green-900/20 hover:bg-[#143d31] disabled:opacity-50 transition-all">Publish Resource</button>
+                    <button onClick={handleUpload} disabled={!newFile} className="w-full bg-[#1B4D3E] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-green-900/20 hover:bg-[#143d31] disabled:opacity-50 transform-gpu transition-all active:scale-95">Publish Resource</button>
                 </div>
             </div>
         </div>
@@ -536,7 +702,7 @@ const CapacityBuilding: React.FC = () => {
 
       <button 
         onClick={() => setShowUploadModal(true)}
-        className="fixed bottom-10 left-10 p-5 bg-[#1B4D3E] text-white rounded-[1.5rem] shadow-2xl hover:scale-110 transition-all z-40 border border-white/10"
+        className="fixed bottom-10 left-10 p-5 bg-[#1B4D3E] text-white rounded-[1.5rem] shadow-2xl hover:scale-110 transform-gpu will-change-transform transition-all z-40 border border-white/10 active:scale-90"
       >
         <Upload size={24}/>
       </button>

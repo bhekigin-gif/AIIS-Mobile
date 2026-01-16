@@ -12,8 +12,10 @@ import CapacityBuilding from './components/CapacityBuilding';
 import Information from './components/Information';
 import ProfileModal from './components/ProfileModal';
 import { SalesProduct, MarketCartItem, MarketOrder, UserRole, UserProfile } from './types';
-import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info, MapPinned, MessageSquareText } from 'lucide-react';
+import { ShieldAlert, Loader2, Sparkles, X, MoreVertical, LayoutDashboard, ShoppingCart, Factory, Shield, BookOpen, Info, MapPinned, MessageSquareText, Save, CheckCircle2 } from 'lucide-react';
 import { Initialize_Database, View_Trading_Catalogue_Items } from './services/adminDataService';
+import { db, Table as DbTable } from './services/databaseService';
+import { convertToCSV, flattenEnterprises } from './services/csvService';
 
 const AccessDenied = ({ message }: { message: string }) => (
     <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-white rounded-3xl border border-red-100 shadow-sm m-4">
@@ -34,9 +36,59 @@ const App: React.FC = () => {
   const [marketCart, setMarketCart] = useState<MarketCartItem[]>([]);
   const [globalOrders, setGlobalOrders] = useState<MarketOrder[]>([]);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [lastBackupTime, setLastBackupTime] = useState<string | null>(null);
+  const [showBackupToast, setShowBackupToast] = useState(false);
 
   const isMobile = windowWidth < 768;
   const isDesktop = windowWidth >= 1024;
+
+  // AUTO-BACKUP ENGINE (10 Minute Period)
+  useEffect(() => {
+    if (!isDbReady) return;
+
+    const performBackup = async () => {
+        try {
+            const [users, enterprises, products, orders, catalogue, metadata] = await Promise.all([
+                db.getAll(DbTable.Users),
+                db.getAll(DbTable.Enterprises),
+                db.getAll(DbTable.Products),
+                db.getAll(DbTable.Orders),
+                db.getAll(DbTable.Catalogue),
+                db.getAll(DbTable.Metadata)
+            ]);
+
+            const flattened = flattenEnterprises(enterprises);
+            
+            const snapshot = {
+                id: `BACKUP-${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                files: {
+                    users: convertToCSV(users),
+                    hubs: convertToCSV(flattened.hubs),
+                    units: convertToCSV(flattened.units),
+                    inventory: convertToCSV(flattened.inventory),
+                    operations: convertToCSV(flattened.operations),
+                    logs: convertToCSV(flattened.logs),
+                    products: convertToCSV(products),
+                    orders: convertToCSV(orders),
+                    catalogue: convertToCSV(catalogue),
+                    metadata: JSON.stringify(metadata)
+                }
+            };
+
+            await db.insert(DbTable.Backups, snapshot);
+            setLastBackupTime(new Date().toLocaleTimeString());
+            setShowBackupToast(true);
+            setTimeout(() => setShowBackupToast(false), 3000);
+            console.log("AIIS: 10-Minute Periodic Snapshot Committed.");
+        } catch (error) {
+            console.error("AIIS: Periodic Backup Node Error", error);
+        }
+    };
+
+    const interval = setInterval(performBackup, 600000); // 10 minutes
+    return () => clearInterval(interval);
+  }, [isDbReady]);
 
   useEffect(() => {
     Initialize_Database().then(async () => {
@@ -66,11 +118,6 @@ const App: React.FC = () => {
           setIsSidebarCollapsed(true);
         }
       }
-  };
-
-  const handleLogout = () => {
-      setUser(null);
-      setActiveTab('login');
   };
 
   const renderContent = () => {
@@ -108,7 +155,7 @@ const App: React.FC = () => {
         isCollapsed={isSidebarCollapsed} 
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
         user={user} 
-        onLogout={handleLogout} 
+        onLogout={() => setUser(null)} 
         onProfileClick={() => setIsProfileOpen(true)} 
         navItems={commonNavItems} 
         activeTab={activeTab} 
@@ -135,6 +182,11 @@ const App: React.FC = () => {
               </div>
               
               <div className="flex items-center gap-3">
+                {lastBackupTime && (
+                    <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[9px] font-black uppercase text-slate-400">
+                        <Save size={12}/> Last Sync: {lastBackupTime}
+                    </div>
+                )}
                 <button 
                   onClick={() => setIsProfileOpen(true)}
                   className="flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100 sm:pr-4 hover:bg-slate-100 transition-colors"
@@ -158,6 +210,19 @@ const App: React.FC = () => {
 
           {isMobile && (
             <BottomNav activeTab={activeTab} setActiveTab={handleNavClick} user={user} onMoreClick={() => setIsSidebarCollapsed(false)} toggleAI={() => setIsAIAdvisorOpen(true)} />
+          )}
+
+          {/* AUTO-BACKUP TOAST */}
+          {showBackupToast && (
+              <div className="fixed top-20 right-8 z-[200] bg-[#1B4D3E] text-[#FBBF24] px-5 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 animate-slide-up">
+                  <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center shadow-inner">
+                      <CheckCircle2 size={16}/>
+                  </div>
+                  <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest leading-none">Auto-Sync Complete</p>
+                      <p className="text-[8px] text-green-300 font-bold uppercase mt-1">Institutional Snapshots Committed</p>
+                  </div>
+              </div>
           )}
       </main>
 

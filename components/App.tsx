@@ -78,7 +78,7 @@ const App: React.FC = () => {
       case 'market': return <Marketplace products={products} setProducts={setProducts} cart={marketCart} setCart={setMarketCart} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} user={user} />;
       case 'production': return (user?.role === UserRole.Farmer || user?.role === UserRole.Extension) ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Access restricted to Producers and Extension Officers." />;
       case 'admin': return (user?.role === UserRole.Government || user?.role === UserRole.Extension) ? <AdminModule currentUser={user} /> : <AccessDenied message="Authorized Officials only." />;
-      case 'capacity': return <CapacityBuilding />;
+      case 'capacity': return <CapacityBuilding user={user} />;
       case 'info': return <Information />;
       default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} onOpenAdvisor={() => setIsAIAdvisorOpen(true)} />;
     }

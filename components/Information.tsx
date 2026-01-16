@@ -5,13 +5,15 @@ import {
   Plus, Loader2, Sparkles, Smartphone, ShieldCheck, 
   Globe, Zap, Tractor, ShoppingCart, BarChart3, Target, 
   TrendingUp, Activity, FileUp, Database, FileSearch,
-  BadgeCheck, Timer, Layers, Droplets, Leaf, BatteryCharging
+  BadgeCheck, Timer, Layers, Droplets, Leaf, BatteryCharging,
+  Settings2
 } from 'lucide-react';
 import { Get_System_Metadata, Report_AIIS_Indicators, View_All_System_Users, View_Trading_Catalogue_Items } from '../services/adminDataService';
 import { db, Table } from '../services/databaseService';
 import { MarketOrder, IndicatorItem } from '../types';
+import SystemSpecification from './SystemSpecification';
 
-type InfoTab = 'about' | 'contacts' | 'announcements' | 'early_warning' | 'reports';
+type InfoTab = 'about' | 'contacts' | 'announcements' | 'early_warning' | 'reports' | 'spec';
 
 interface DocumentItem {
     id: string;
@@ -437,9 +439,16 @@ const Information: React.FC = () => {
         <div>
             <h2 className="text-2xl sm:text-4xl font-black text-[#1B4D3E] tracking-tight">Information Centre</h2>
             <div className="flex gap-4 sm:gap-8 mt-6 overflow-x-auto no-scrollbar pb-2 border-b border-slate-100">
-                {(['about', 'contacts', 'announcements', 'early_warning', 'reports'] as const).map((tab) => (
-                    <button key={tab} onClick={() => { setActiveTab(tab); setSelectedFolder(null); }} className={`pb-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${activeTab === tab ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-400'}`}>
-                        {tab.replace('_', ' ')}
+                {([
+                  { id: 'about', label: 'About' },
+                  { id: 'contacts', label: 'Contacts' },
+                  { id: 'announcements', label: 'Notices' },
+                  { id: 'early_warning', label: 'Warnings' },
+                  { id: 'reports', label: 'Indicators' },
+                  { id: 'spec', label: 'Technical Spec' }
+                ] as const).map((tab) => (
+                    <button key={tab.id} onClick={() => { setActiveTab(tab.id); setSelectedFolder(null); }} className={`pb-2 text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all border-b-2 whitespace-nowrap ${activeTab === tab.id ? 'border-[#FBBF24] text-[#1B4D3E]' : 'border-transparent text-slate-400'}`}>
+                        {tab.label}
                     </button>
                 ))}
             </div>
@@ -454,6 +463,7 @@ const Information: React.FC = () => {
         {activeTab === 'contacts' && renderContacts()}
         {activeTab === 'announcements' && renderAnnouncements()}
         {activeTab === 'reports' && renderReports()}
+        {activeTab === 'spec' && <SystemSpecification />}
         {activeTab === 'early_warning' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
             {warningCategories.map((c: string) => (

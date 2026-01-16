@@ -1,10 +1,10 @@
 /**
- * AIIS DATABASE SERVICE v3.0
- * Robust IndexedDB implementation with idempotent inserts.
+ * AIIS DATABASE SERVICE v3.1
+ * Robust IndexedDB implementation with idempotent inserts and Backup Node support.
  */
 
 const DB_NAME = 'AIIS_National_Registry_V3';
-const DB_VERSION = 5;
+const DB_VERSION = 6; // Incremented for backups table
 
 export enum Table {
     Users = 'users',
@@ -12,7 +12,8 @@ export enum Table {
     Products = 'products',
     Orders = 'orders',
     Catalogue = 'catalogue',
-    Metadata = 'metadata'
+    Metadata = 'metadata',
+    Backups = 'backups' // Added for auto-snapshots
 }
 
 class DatabaseService {
@@ -26,7 +27,6 @@ class DatabaseService {
 
             request.onupgradeneeded = (event: any) => {
                 const db = event.target.result;
-                // Ensure all tables exist
                 Object.values(Table).forEach(tableName => {
                     if (!db.objectStoreNames.contains(tableName)) {
                         db.createObjectStore(tableName, { keyPath: 'id' });
@@ -87,9 +87,6 @@ class DatabaseService {
         });
     }
 
-    /**
-     * Idempotent insert: uses put() instead of add() to prevent "Key already exists" errors.
-     */
     async insert<T extends { id?: string | number }>(table: Table, item: T): Promise<T> {
         const db = await this.getDb();
         if (!item.id) item.id = `ID-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -97,7 +94,6 @@ class DatabaseService {
         return new Promise((resolve, reject) => {
             const transaction = db.transaction(table, 'readwrite');
             const store = transaction.objectStore(table);
-            // Use put() to avoid "Key already exists" error
             const request = store.put(item);
 
             request.onsuccess = () => resolve(item);
@@ -147,6 +143,29 @@ class DatabaseService {
 
             request.onsuccess = () => resolve(true);
             request.onerror = () => reject(request.error);
+        });
+    }
+
+    /**
+     * Wipes specific tables and restores data. Essential for "Reset to Blank Slate" recovery.
+     */
+    async wipeAndRestore(data: Record<string, any[]>): Promise<void> {
+        const db = await this.getDb();
+        const tables = Object.keys(data) as Table[];
+        
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(tables, 'readwrite');
+            
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+
+            tables.forEach(tableName => {
+                const store = transaction.objectStore(tableName);
+                store.clear();
+                data[tableName].forEach(item => {
+                    store.put(item);
+                });
+            });
         });
     }
 }

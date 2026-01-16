@@ -20,6 +20,9 @@ import { db, Table as DbTable } from '../services/databaseService';
 const GOOGLE_MAPS_API_KEY = "AIzaSyDFuDLViwxFLH0iO-zFgbJkks20w_DiiJU";
 const PLACE_HOLDER_IMAGE = "https://images.unsplash.com/photo-1492496913980-501348b61384?w=300&h=300&fit=crop";
 
+// QR Generator helper
+const getQrUrl = (data: string) => `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data)}&bgcolor=FFFFFF&color=1B4D3E`;
+
 interface MarketplaceProps {
     products: SalesProduct[];
     setProducts: React.Dispatch<React.SetStateAction<SalesProduct[]>>;
@@ -754,6 +757,21 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                         </div>
                                     )}
 
+                                    {/* Item Chronology QR codes for Orders */}
+                                    <div className="flex gap-4 overflow-x-auto py-2 no-scrollbar">
+                                        {order.items.map(item => (
+                                            <div key={item.id} className="flex-shrink-0 flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                                                <div className="w-12 h-12 bg-white rounded-lg p-1 border border-slate-200">
+                                                    <img src={getQrUrl(item.id)} alt="Chronology QR" className="w-full h-full object-contain" />
+                                                </div>
+                                                <div className="pr-4">
+                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Batch QR Node</p>
+                                                    <p className="text-[10px] font-black text-[#1B4D3E] leading-none mt-1">{item.name}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
                                     {order.popRef && (
                                         <div className="bg-slate-50 rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6 border border-slate-100 animate-slide-up">
                                             <div className="flex-1 space-y-2">
@@ -817,7 +835,10 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                                         <h4 className="font-black text-slate-800 text-sm">{p.name}</h4>
                                         <span className={`px-2 py-0.5 rounded text-[7px] font-black uppercase ${p.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{p.status}</span>
                                     </div>
-                                    <p className="text-[9px] font-mono font-black text-indigo-500 tracking-tighter uppercase">{p.id}</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-[9px] font-mono font-black text-indigo-500 tracking-tighter uppercase">{p.id}</p>
+                                        <img src={getQrUrl(p.id)} className="w-6 h-6 border border-slate-100" alt="QR" />
+                                    </div>
                                     <div className="flex justify-between items-end mt-4">
                                         <p className="text-lg font-black text-[#1B4D3E]">{p.price === 0 ? 'FREE' : `E ${p.price}`}</p>
                                         <p className="text-[10px] font-bold text-slate-400">{p.quantity} {p.unit} Remaining</p>
@@ -859,7 +880,14 @@ const Marketplace: React.FC<MarketplaceProps> = ({ products, setProducts, cart, 
                         <div className="space-y-6 animate-slide-up pt-10">
                             <div className="bg-[#1B4D3E] p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden border border-white/10">
                                 <div className="relative z-10 flex flex-col md:flex-row gap-8 items-start">
-                                    <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-4 border-white/20 shadow-2xl bg-white"><img src={activeTrace.product.image} className="w-full h-full object-cover" /></div>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-4 border-white/20 shadow-2xl bg-white">
+                                            <img src={activeTrace.product.image} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="bg-white p-2 rounded-2xl shadow-xl w-32 h-32 border-4 border-[#FBBF24]/20">
+                                            <img src={getQrUrl(activeTrace.product.id)} alt="Digital Chronology QR" className="w-full h-full object-contain" />
+                                        </div>
+                                    </div>
                                     <div className="space-y-4 flex-1">
                                         <div>
                                             <div className="flex items-center gap-3 mb-1">
