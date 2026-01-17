@@ -101,7 +101,7 @@ const Production: React.FC<ProductionProps> = ({
   const [mapInstance, setMapInstance] = useState<any>(null);
   const [drawingManager, setDrawingManager] = useState<any>(null);
   const markersRef = useRef<any[]>([]);
-  const polygonsRef = useRef<any[]>([]);
+  const polygonsRef = useRef<Record<string, any>>({});
   
   const [enterprises, setEnterprises] = useState<any[]>([]);
   const [masterCatalogue, setMasterCatalogue] = useState<CatalogueItem[]>([]);
@@ -127,6 +127,11 @@ const Production: React.FC<ProductionProps> = ({
   const [activeUnitForInventory, setActiveUnitForInventory] = useState<any>(null);
   const [filterUnitId, setFilterUnitId] = useState<string>('All');
   
+  // Boundary Correction States
+  const [isEditingBoundary, setIsEditingBoundary] = useState(false);
+  const [unitBeingCorrected, setUnitBeingCorrected] = useState<string | null>(null);
+  const [liveAreaHa, setLiveAreaHa] = useState<string>('0');
+
   // Interaction Refs
   const [isPlacingMode, setIsPlacingMode] = useState(false);
   const isPlacingModeRef = useRef(false);
@@ -330,16 +335,16 @@ const Production: React.FC<ProductionProps> = ({
 
     return () => {
         markersRef.current.forEach(m => m.setMap(null));
-        polygonsRef.current.forEach(p => p.setMap(null));
+        Object.values(polygonsRef.current).forEach((p: any) => p.setMap(null));
     };
   }, [googleApiLoaded, activeTab]);
 
   useEffect(() => {
     if (!mapInstance) return;
     markersRef.current.forEach(m => m.setMap(null));
-    polygonsRef.current.forEach(p => p.setMap(null));
+    Object.values(polygonsRef.current).forEach((p: any) => p.setMap(null));
     markersRef.current = [];
-    polygonsRef.current = [];
+    polygonsRef.current = {};
 
     enterprises.forEach(ent => {
         if (ent.gps) {
@@ -368,15 +373,60 @@ const Production: React.FC<ProductionProps> = ({
                             fillColor: '#1B4D3E',
                             fillOpacity: 0.35,
                             strokeColor: '#FBBF24',
-                            strokeWeight: 2
+                            strokeWeight: 2,
+                            editable: false
                         });
-                        polygonsRef.current.push(poly);
+                        polygonsRef.current[u.id] = poly;
                     }
                 });
             }
         }
     });
   }, [mapInstance, enterprises, selectedEntId]);
+
+  const handleCorrectBoundary = (unitId: string) => {
+      const poly = polygonsRef.current[unitId];
+      if (!poly) return;
+      
+      setIsEditingBoundary(true);
+      setUnitBeingCorrected(unitId);
+      poly.setEditable(true);
+      poly.setOptions({ fillOpacity: 0.6, strokeColor: '#10B981', strokeWeight: 4 });
+
+      const updateArea = () => {
+          const areaM2 = (window as any).google.maps.geometry.spherical.computeArea(poly.getPath());
+          setLiveAreaHa((areaM2 / 10000).toFixed(4));
+      };
+
+      (window as any).google.maps.event.addListener(poly.getPath(), 'set_at', updateArea);
+      (window as any).google.maps.event.addListener(poly.getPath(), 'insert_at', updateArea);
+      (window as any).google.maps.event.addListener(poly.getPath(), 'remove_at', updateArea);
+      
+      updateArea();
+  };
+
+  const handleSaveCorrection = async () => {
+      if (!unitBeingCorrected || !selectedEntId) return;
+      const poly = polygonsRef.current[unitBeingCorrected];
+      if (!poly) return;
+
+      const path = poly.getPath().getArray().map((p: any) => ({ lat: p.lat(), lng: p.lng() }));
+      const areaM2 = (window as any).google.maps.geometry.spherical.computeArea(poly.getPath());
+      const areaHa = (areaM2 / 10000).toFixed(4);
+
+      const ent = await db.getById<any>(Table.Enterprises, selectedEntId);
+      ent.units = ent.units.map((u: any) => 
+          u.id === unitBeingCorrected ? { ...u, path, area: areaHa } : u
+      );
+      
+      await db.update(Table.Enterprises, selectedEntId, ent);
+      
+      poly.setEditable(false);
+      poly.setOptions({ fillOpacity: 0.35, strokeColor: '#FBBF24', strokeWeight: 2 });
+      setIsEditingBoundary(false);
+      setUnitBeingCorrected(null);
+      await loadAllData(selectedEntId);
+  };
 
   const handleSaveEnterprise = async () => {
     if (editingEnt) {
@@ -777,6 +827,19 @@ const Production: React.FC<ProductionProps> = ({
                   <div ref={mapRef} className="w-full h-full" style={{ position: 'absolute', top: 0, left: 0 }} />
                   {isPlacingMode && (<div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-8 py-3 bg-orange-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl border-4 border-white/20 flex items-center gap-3 pointer-events-none"><MousePointerClick size={16}/> Tap map to anchor node</div>)}
                   {isTracingUnit && (<div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-8 py-3 bg-[#FBBF24] text-[#1B4D3E] rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl border-4 border-white/20 flex items-center gap-3 pointer-events-none"><Pencil size={16}/> Tracing unit perimeter...</div>)}
+                  {isEditingBoundary && (
+                      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 px-8 py-4 bg-[#10B981] text-white rounded-[2rem] shadow-2xl border-4 border-white flex flex-col items-center gap-2 animate-slide-up">
+                          <div className="flex items-center gap-3">
+                              <MousePointer2 size={20} className="animate-bounce" />
+                              <span className="text-xs font-black uppercase tracking-widest">Commit Spatial Correction</span>
+                          </div>
+                          <div className="flex items-center gap-4 mt-2 bg-black/10 px-4 py-2 rounded-xl border border-white/20">
+                              <p className="text-[10px] font-bold">LIVE AREA: <span className="text-lg font-black">{liveAreaHa}</span> Ha</p>
+                              <button onClick={handleSaveCorrection} className="px-5 py-1.5 bg-white text-[#10B981] rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-emerald-50 transition-all">Save Adjustments</button>
+                              <button onClick={() => { setIsEditingBoundary(false); if(unitBeingCorrected) polygonsRef.current[unitBeingCorrected]?.setEditable(false); setUnitBeingCorrected(null); }} className="px-5 py-1.5 bg-rose-500 text-white rounded-lg text-[9px] font-black uppercase shadow-lg hover:bg-rose-600 transition-all">Cancel</button>
+                          </div>
+                      </div>
+                  )}
               </div>
               <div className="w-full lg:w-[420px] bg-white border-l border-slate-200 shadow-2xl flex flex-col relative z-20">
                   <div className="px-6 py-4 bg-[#1B4D3E] text-white flex justify-between items-center sticky top-0 shrink-0">
@@ -803,6 +866,7 @@ const Production: React.FC<ProductionProps> = ({
                                           <div className="flex justify-between items-center">
                                               <div className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"/><p className="text-[11px] font-black text-[#1B4D3E]">{unit.name}</p></div>
                                               <div className="flex gap-1 opacity-0 group-hover/unit:opacity-100 transition-all">
+                                                  <button onClick={(e) => { e.stopPropagation(); handleCorrectBoundary(unit.id); }} title="Correct Perimeter" className="p-1.5 bg-white text-emerald-500 rounded-lg hover:bg-emerald-50 shadow-sm"><RulerIcon size={10}/></button>
                                                   <button onClick={(e) => { e.stopPropagation(); setEditingUnit(unit); setSelectedEntId(ent.id); setNewUnit({...unit}); setShowUnitModal(true); }} className="p-1.5 bg-white text-slate-400 rounded-lg hover:text-[#1B4D3E] shadow-sm"><Edit2 size={10}/></button>
                                                   <button onClick={(e) => { e.stopPropagation(); handleDeleteUnit(ent.id, unit.id); }} className="p-1.5 bg-white text-slate-400 rounded-lg hover:text-rose-500 shadow-sm"><Trash size={10}/></button>
                                               </div>
