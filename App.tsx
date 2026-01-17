@@ -27,7 +27,8 @@ const AccessDenied = ({ message }: { message: string }) => (
 
 const App: React.FC = () => {
   const [isDbReady, setIsDbReady] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Set initial tab to login to force authentication on startup
+  const [activeTab, setActiveTab] = useState('login');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1280);
   const [isAIAdvisorOpen, setIsAIAdvisorOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -130,7 +131,7 @@ const App: React.FC = () => {
       case 'market': return <Marketplace products={products} setProducts={setProducts} cart={marketCart} setCart={setMarketCart} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} user={user} onRegisterClick={() => setActiveTab('registry')} />;
       case 'production': return (user?.role === UserRole.Farmer || user?.role === UserRole.Extension) ? <Production user={user} products={products} setProducts={setProducts} globalOrders={globalOrders} setGlobalOrders={setGlobalOrders} /> : <AccessDenied message="Access restricted to Producers and Extension Officers." />;
       case 'admin': return (user?.role === UserRole.Government || user?.role === UserRole.Extension) ? <AdminModule currentUser={user} /> : <AccessDenied message="Authorized Officials only." />;
-      case 'capacity': return <CapacityBuilding />;
+      case 'capacity': return <CapacityBuilding user={user} />;
       case 'info': return <Information />;
       default: return <Dashboard user={user} onRegister={() => setActiveTab('registry')} onOpenAdvisor={() => setIsAIAdvisorOpen(true)} />;
     }
@@ -148,6 +149,15 @@ const App: React.FC = () => {
     ...(user?.role === UserRole.Extension ? [{ id: 'admin', label: 'Field Registry', icon: <Shield size={20}/> }] : [])
   ];
 
+  // If in a "Gatekeeper" state (Login, Registry, or DB Loading), show only the content view without global navigation
+  if (activeTab === 'login' || activeTab === 'registry' || !isDbReady) {
+    return (
+      <div className="h-screen w-screen bg-slate-50 overflow-hidden font-sans">
+        {renderContent()}
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-screen bg-slate-50 overflow-hidden font-sans">
       
@@ -155,7 +165,7 @@ const App: React.FC = () => {
         isCollapsed={isSidebarCollapsed} 
         toggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
         user={user} 
-        onLogout={() => setUser(null)} 
+        onLogout={() => { setUser(null); setActiveTab('login'); }} 
         onProfileClick={() => setIsProfileOpen(true)} 
         navItems={commonNavItems} 
         activeTab={activeTab} 

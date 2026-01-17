@@ -8,7 +8,8 @@ import {
   SearchCode, BarChart3, Fingerprint, Activity, Building2, UserCheck, ShieldAlert, Link as LinkIcon, TrendingUp,
   HardHat, ClipboardList, Target, Zap, LayoutDashboard, Map as MapIcon, Globe, GraduationCap, Award,
   Trophy, BadgeCheck, ExternalLink, QrCode,
-  AlertCircle, Camera, FileUp, Lock
+  AlertCircle, Camera, FileUp, Lock, MapPinned, Crosshair, Microscope, Stethoscope,
+  Ruler, Headset, Printer, MousePointer2, AlertTriangle, Scale
 } from 'lucide-react';
 import { ActorType, UserProfile } from '../types';
 import { generateCustomUserStory } from '../services/geminiService';
@@ -44,6 +45,7 @@ const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'documents' | 'matrix' | 'user_stories' | 'training'>('user_stories');
   const [activeDocCategory, setActiveDocCategory] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showLevel2Details, setShowLevel2Details] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterFileType, setFilterFileType] = useState('');
@@ -218,13 +220,11 @@ const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
           window.open(baseUrl, '_blank');
           return;
       }
-      // Encode user params into the URL
+      
       const params = new URLSearchParams({
-          userId: user.id || 'guest',
-          userName: user.name,
-          userRole: user.role,
-          actorType: user.actorType || 'unknown',
-          region: user.region || 'National'
+          Name: user.firstName || user.name.split(' ')[0],
+          Surname: user.lastName || user.name.split(' ')[1] || '',
+          ID: user.id || 'anonymous'
       });
       window.open(`${baseUrl}?${params.toString()}`, '_blank');
   };
@@ -232,7 +232,7 @@ const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
   if (!systemMetadata) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[#1B4D3E]"/></div>;
 
   const renderTrainingPortal = () => (
-      <div className="space-y-10 animate-fade-in pb-20">
+      <div className="space-y-10 animate-fade-in pb-20 overflow-x-hidden">
           {/* Main Hero Linkage */}
           <div className="bg-[#1B4D3E] p-10 rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-10 shadow-2xl relative overflow-hidden transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
               <div className="relative z-10 max-w-xl space-y-6">
@@ -291,26 +291,31 @@ const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
               </div>
 
               {/* Level 2: Intermediate */}
-              <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-50 shadow-sm relative overflow-hidden group hover:border-[#FBBF24]/50 transform-gpu will-change-transform transition-all duration-300 min-h-[320px] flex flex-col" style={{ backfaceVisibility: 'hidden' }}>
+              <div className="bg-white p-8 rounded-[2.5rem] border-2 border-slate-100 shadow-sm relative overflow-hidden group hover:border-[#FBBF24]/40 hover:shadow-xl transform-gpu will-change-transform transition-all duration-300 min-h-[320px] flex flex-col" style={{ backfaceVisibility: 'hidden' }}>
                   <div className="flex justify-between items-start mb-6">
                       <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl shadow-inner"><Zap size={28}/></div>
                       <span className="px-4 py-1 bg-amber-400 text-[#1B4D3E] rounded-lg text-[10px] font-black uppercase tracking-widest animate-pulse">In Progress</span>
                   </div>
-                  <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Level 2: Inter</h4>
-                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-[0.2em] mt-1">The Operational User</p>
-                  <p className="text-xs text-slate-500 font-medium leading-relaxed mt-4">Precision GIS tracing, AI diagnostic nodes, and regional outreach logging.</p>
+                  <h4 className="text-xl font-black text-slate-800 uppercase tracking-tight">Level 2: Intermediate</h4>
+                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-[0.2em] mt-1">The Productive Node</p>
                   
-                  <div className="mt-auto space-y-4">
+                  <div className="mt-4 space-y-3">
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">Mastering the **Value Chain Bridge**: Using the **Harvest** button in Ops to generate **Marketplace Listings**.</p>
+                      <button 
+                        onClick={() => setShowLevel2Details(!showLevel2Details)}
+                        className="text-[10px] font-black text-[#1B4D3E] uppercase flex items-center gap-1 hover:underline"
+                      >
+                        {showLevel2Details ? 'Collapse Detailed Manual' : 'Explore Technical Manual'} <ChevronRight size={12} className={showLevel2Details ? 'rotate-90' : ''}/>
+                      </button>
+                  </div>
+                  
+                  <div className="mt-auto space-y-4 pt-6">
                       <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-400">
                           <span>Progress</span>
                           <span>65%</span>
                       </div>
                       <div className="w-full bg-slate-50 h-2.5 rounded-full overflow-hidden border border-slate-100 shadow-inner">
                           <div className="bg-[#FBBF24] h-full rounded-full transition-all duration-1000" style={{ width: '65%' }} />
-                      </div>
-                      <div className="flex items-center gap-2 pt-2">
-                          <AlertCircle size={14} className="text-amber-500"/>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase">Next: Field-Check Verification</p>
                       </div>
                   </div>
               </div>
@@ -331,6 +336,129 @@ const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
                   </div>
               </div>
           </div>
+
+          {/* Level 2 Detailed Technical Manual */}
+          {showLevel2Details && (
+              <div className="animate-slide-up space-y-12 bg-white rounded-[3rem] border-2 border-amber-100 p-10 shadow-2xl overflow-hidden transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
+                  <div className="flex flex-col md:flex-row items-center justify-between border-b border-slate-100 pb-8 gap-6">
+                      <div className="flex items-center gap-6">
+                        <div className="p-5 bg-amber-400 text-[#1B4D3E] rounded-3xl shadow-xl rotate-3"><Zap size={32}/></div>
+                        <div>
+                            <h4 className="text-3xl font-black text-slate-800 uppercase tracking-tight leading-none">Level 2 Intermediate Manual</h4>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em] mt-3">Production & Market Place Synchronization</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="p-3 bg-slate-50 text-slate-400 hover:text-[#1B4D3E] rounded-xl transition-all border border-slate-100 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                            <Printer size={16}/> Print Manual
+                        </button>
+                        <button onClick={() => setShowLevel2Details(false)} className="p-3 bg-slate-50 text-slate-300 hover:text-rose-500 rounded-xl transition-all"><X size={24}/></button>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+                      {/* Section 2.1: Spatial Registry */}
+                      <div className="space-y-10">
+                          <div className="space-y-4">
+                              <h5 className="flex items-center gap-3 text-xl font-black text-indigo-900 uppercase tracking-tight">
+                                  <MapPinned className="text-indigo-600" size={24}/> 2.1 Spatial Registry & Perimeter Tracing (GIS)
+                              </h5>
+                              <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                                To ensure land-tenure accuracy and precise Hectare (Ha) calculation for subsidy eligibility, the system implements high-precision polygon mapping.
+                              </p>
+                          </div>
+                          
+                          <div className="space-y-8">
+                              {[
+                                  { icon: <Building2 size={16}/>, title: 'Initializing the Node', desc: 'Navigate to **Ops Manager** > **Spatial Registry**. Select <span class="px-2 py-0.5 bg-slate-900 text-white rounded text-[8px] font-black uppercase mx-1 cursor-default">Register New Hub</span> to anchor your primary enterprise location via GPS.' },
+                                  { icon: <MapIcon size={16}/>, title: 'Trace Mode (Manual Polygon)', desc: 'Select your Hub and tap <span class="px-2 py-0.5 bg-amber-400 text-slate-900 rounded text-[8px] font-black uppercase mx-1 cursor-default">Trace Unit</span>. The system activates the Google Maps Drawing Manager interface.' },
+                                  { icon: <Crosshair size={16}/>, title: 'Point Capture', desc: 'While physically on the field, walk the perimeter. Use the **Crosshair Tool** to drop vertices at every corner of the field.' },
+                                  { icon: <Ruler size={16}/>, title: 'Geometry Calculation', desc: 'Once the polygon is closed, the system uses the **Spherical Geometry Library** to calculate the area. Results are displayed in **Hectares (Ha)**.' },
+                                  { icon: <ShieldAlert size={16}/>, title: 'Abolition Restriction', desc: 'Note that once a unit has active **Inventory Nodes** or **Chronology Logs**, it cannot be deleted. This maintains the integrity of the National Spatial Database.' }
+                              ].map((item, i) => (
+                                  <div key={i} className="flex gap-6 items-start group">
+                                      <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner group-hover:bg-[#1B4D3E] group-hover:text-[#FBBF24] transition-all duration-300">{item.icon}</div>
+                                      <div className="space-y-1 pt-1">
+                                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.title}</p>
+                                          <p className="text-xs text-slate-500 leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: item.desc.replace(/\*\*(.*?)\*\*/g, '<span class="text-indigo-700 font-black">$1</span>') }} />
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      {/* Section 2.2: AI Diagnostics */}
+                      <div className="space-y-10">
+                          <div className="space-y-4">
+                              <h5 className="flex items-center gap-3 text-xl font-black text-emerald-900 uppercase tracking-tight">
+                                  <Sparkles className="text-emerald-600" size={24}/> 2.2 AI-Driven Diagnostics & Advisory
+                              </h5>
+                              <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                                Utilize the **AIIS Expert Advisor** (Gemini 3 Pro) to mitigate crop loss through real-time pathology and policy cross-referencing.
+                              </p>
+                          </div>
+
+                          <div className="space-y-8">
+                              {[
+                                  { icon: <Camera size={16}/>, title: 'Macro Capture', desc: 'Within the **Advisor**, tap the **Camera Icon**. Capture a high-resolution macro photo of the leaf lesion, pest, or soil condition.' },
+                                  { icon: <MessageSquare size={16}/>, title: 'Diagnostic Request', desc: 'Prompt the AI: "Identify this pathology and cross-reference the National Master Catalogue for approved treatments."' },
+                                  { icon: <Microscope size={16}/>, title: 'Technical Synthesis', desc: 'The **Gemini 3 Pro** engine performs Computer Vision Analysis. It will return a probability score and a treatment protocol.' },
+                                  { icon: <Headset size={16}/>, title: 'Advisory Linkage', desc: 'If the severity is "Critical," use the <span class="px-2 py-0.5 bg-white border border-slate-200 text-indigo-600 rounded text-[8px] font-black uppercase mx-1">Connect Extension</span> button to hand over the session to a human Regional Officer.' }
+                              ].map((item, i) => (
+                                  <div key={i} className="flex gap-6 items-start group">
+                                      <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0 shadow-inner group-hover:bg-[#1B4D3E] group-hover:text-[#FBBF24] transition-all duration-300">{item.icon}</div>
+                                      <div className="space-y-1 pt-1">
+                                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{item.title}</p>
+                                          <p className="text-xs text-slate-500 leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: item.desc.replace(/\*\*(.*?)\*\*/g, '<span class="text-emerald-700 font-black">$1</span>') }} />
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+
+                          {/* Section 2.3: The Value Chain Pivot */}
+                          <div className="p-8 bg-slate-900 rounded-[2.5rem] text-white relative overflow-hidden mt-10 group/hub">
+                              <div className="relative z-10 space-y-6">
+                                  <div className="flex items-center gap-4">
+                                      <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-[#FBBF24] border border-white/10 shadow-lg group-hover/hub:scale-110 transition-transform"><Scale size={24}/></div>
+                                      <h6 className="text-sm font-black uppercase tracking-[0.2em] text-green-300">2.3 The Producer-Buyer Pivot</h6>
+                                  </div>
+                                  <p className="text-xs font-medium text-slate-300 leading-relaxed">
+                                      Level 2 competency allows you to use the <span class="px-2 py-1 bg-amber-400 text-slate-900 rounded-lg text-[9px] font-black uppercase mx-1">Harvest Produce</span> sub-task button in the Operations module.
+                                  </p>
+                                  <ul className="text-[10px] space-y-3 text-slate-400 font-bold uppercase">
+                                      <li className="flex items-start gap-3"><Check size={14} className="text-emerald-500 shrink-0"/> Triggers generation of an immutable **Chronology ID**.</li>
+                                      <li className="flex items-start gap-3"><Check size={14} className="text-emerald-500 shrink-0"/> Automatically syncs lot details to the **Trade Hub**.</li>
+                                      <li className="flex items-start gap-3"><Check size={14} className="text-emerald-500 shrink-0"/> Bridges "In-Ground" assets to "Marketable" inventory.</li>
+                                  </ul>
+                              </div>
+                              <ShoppingCart size={180} className="absolute -bottom-10 -right-10 text-white/5 pointer-events-none rotate-12" />
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Section 2.4: Market Operations */}
+                  <div className="bg-slate-50 rounded-[2.5rem] p-10 border border-slate-100">
+                      <div className="flex items-center gap-4 mb-8">
+                         <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg"><Store size={24}/></div>
+                         <h5 className="text-xl font-black text-indigo-900 uppercase tracking-tight">2.4 Market Place Execution (The Handshake)</h5>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                          <div className="space-y-4">
+                              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Buyer Node Flow</p>
+                              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                                As a Buyer, utilize the **Basket** to source from multiple hubs. Note the **Distance Matrix** calculation: the system automatically adjusts the **Logistics Fee** based on the distance between the Producer Hub and your Unit Node. Use the <span class="px-2 py-0.5 bg-[#1B4D3E] text-white rounded text-[8px] font-black uppercase">Transmit PoP Evidence</span> button to upload transaction proof for lot release.
+                              </p>
+                          </div>
+                          <div className="space-y-4">
+                              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Seller Node Flow</p>
+                              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                                Sellers must monitor the **Orders History**. Use the <span class="px-2 py-0.5 bg-indigo-600 text-white rounded text-[8px] font-black uppercase">Audit & Initialize</span> button once payment is verified. This unlocks the **Logistics Hub** tracking, enabling the buyer to view the movement of the batch Chronology ID.
+                              </p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )}
 
           {/* Sync Certification Area */}
           <div className="bg-indigo-50 border-2 border-indigo-100 p-8 rounded-[3rem] flex flex-col md:flex-row items-center gap-10 relative transform-gpu" style={{ backfaceVisibility: 'hidden' }}>
@@ -399,7 +527,7 @@ const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
   );
 
   const renderUserStories = () => (
-      <div className="space-y-12 animate-fade-in max-w-6xl mx-auto pb-20">
+      <div className="space-y-12 animate-fade-in max-w-6xl mx-auto pb-20 overflow-x-hidden">
           <div className="text-center space-y-4 max-w-3xl mx-auto">
               <h3 className="font-black text-4xl text-slate-800 tracking-tight">Institutional Workflows</h3>
               <p className="text-slate-500 font-medium text-lg leading-relaxed">
@@ -504,7 +632,7 @@ const CapacityBuilding: React.FC<CapacityBuildingProps> = ({ user }) => {
                           <button 
                             onClick={handleGenerateStory}
                             disabled={isGeneratingStory || !storyGoal.trim()}
-                            className="w-full bg-[#FBBF24] text-[#1B4D3E] py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-yellow-400 disabled:opacity-50 flex items-center justify-center gap-3 transition-all active:scale-95 group transform-gpu"
+                            className="w-full bg-[#FBBF24] text-[#1B4D3E] py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:bg-yellow-400 disabled:opacity-50 flex items-center justify-center gap-3 transition-all active:scale-95 group transform-gpu"
                             style={{ backfaceVisibility: 'hidden' }}
                           >
                               {isGeneratingStory ? <Loader2 size={20} className="animate-spin"/> : <Sparkles size={20} />}

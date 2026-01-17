@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LogIn, LogOut, UserCircle, X, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
@@ -56,12 +55,21 @@ const Sidebar: React.FC<SidebarProps> = ({
 
           {!isCollapsed ? (
             <div className="text-center w-full animate-fade-in py-2">
+              <img 
+                src="https://www.agrinfosystems.gov.sz/assets/uploads/favicon1.png" 
+                alt="AIIS Logo" 
+                className="w-12 h-12 object-contain mx-auto mb-3 drop-shadow-sm" 
+              />
               <h1 className="text-2xl font-black tracking-tight text-white uppercase leading-none">AIIS</h1>
               <p className="text-[8px] text-green-300 font-bold uppercase tracking-[0.2em] mt-1">Agriculture Market</p>
             </div>
           ) : (
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center border border-white/10 shadow-inner">
-               <span className="text-xs font-black text-[#FBBF24]">AI</span>
+            <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 shadow-inner overflow-hidden">
+               <img 
+                 src="https://www.agrinfosystems.gov.sz/assets/uploads/favicon1.png" 
+                 alt="AIIS" 
+                 className="w-7 h-7 object-contain" 
+               />
             </div>
           )}
         </div>

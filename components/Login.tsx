@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Lock, LogIn, ChevronRight, Users, Key, AlertCircle, Sparkles, UserCircle, ArrowRightCircle, Loader2
+  Lock, LogIn, ChevronRight, Users, Key, AlertCircle, Sparkles, UserCircle, ArrowRightCircle, Loader2, ShieldCheck
 } from 'lucide-react';
 import { UserRole, UserProfile, Region } from '../types';
 import { View_All_System_Users } from '../services/adminDataService';
@@ -109,10 +109,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
              <div className="absolute -bottom-[5%] -left-[5%] w-[300px] h-[300px] bg-amber-100/40 rounded-full blur-[80px]"></div>
         </div>
 
-        <div className="w-full max-w-[420px] bg-white rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/60 overflow-hidden z-10 animate-fade-in my-4">
-            <div className="p-6 sm:p-10 flex flex-col items-center">
-                <div className="mb-8 w-full flex flex-col items-center pt-4">
-                    <div className="text-center">
+        <div className="w-full max-w-[420px] bg-white rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/60 overflow-hidden z-10 animate-fade-in my-4 flex flex-col">
+            {/* Header banner section removed to shift everything up */}
+            
+            <div className="p-6 sm:p-10 pt-12 flex flex-col items-center">
+                <div className="mb-8 w-full flex flex-col items-center">
+                    <div className="text-center flex flex-col items-center">
                         <h2 className="text-3xl font-black text-slate-800 tracking-tight uppercase">AIIS</h2>
                         <p className="text-emerald-600 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Agriculture Market</p>
                     </div>
@@ -204,20 +206,27 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister }) => {
                 <div className="mt-8 w-full flex flex-col items-center">
                     <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em] mb-4">Express Verification</p>
                     
-                    <div className="flex gap-3 w-full">
+                    <div className="grid grid-cols-3 gap-2 w-full">
                         <button 
                             onClick={() => handleQuickLogin('MG')}
-                            className="flex-1 flex items-center justify-center gap-2.5 p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100 hover:bg-emerald-100 transition-all group"
+                            className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100 hover:bg-emerald-100 transition-all group"
                         >
                             <Users size={14} className="text-emerald-600" />
-                            <span className="text-[9px] font-black text-emerald-800 uppercase">Producer</span>
+                            <span className="text-[8px] font-black text-emerald-800 uppercase">Producer</span>
                         </button>
                         <button 
                             onClick={() => handleQuickLogin('EXT')}
-                            className="flex-1 flex items-center justify-center gap-2.5 p-3 rounded-2xl bg-blue-50/50 border border-blue-100 hover:bg-blue-100 transition-all group"
+                            className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl bg-blue-50/50 border border-blue-100 hover:bg-blue-100 transition-all group"
                         >
                             <UserCircle size={14} className="text-blue-600" />
-                            <span className="text-[9px] font-black text-blue-800 uppercase">Extension</span>
+                            <span className="text-[8px] font-black text-blue-800 uppercase">Extension</span>
+                        </button>
+                        <button 
+                            onClick={() => handleQuickLogin('SUP')}
+                            className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl bg-amber-50/50 border border-amber-100 hover:bg-amber-100 transition-all group"
+                        >
+                            <ShieldCheck size={14} className="text-amber-600" />
+                            <span className="text-[8px] font-black text-amber-800 uppercase">Supervisor</span>
                         </button>
                     </div>
 
